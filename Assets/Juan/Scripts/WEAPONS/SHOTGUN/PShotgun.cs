@@ -2,58 +2,46 @@ using System.Collections;
 using Fusion;
 using UnityEngine;
 
-public class PShooting : NetworkBehaviour
+public class PShotgun : NetworkBehaviour
 {
     [Header("Referencias")]
     [SerializeField] private Camera playerCamera;
 
-    [Header("Arma")]
-    [SerializeField] private string weaponName = "PISTOL";
-
-    [Header("Disparo")]
-    [SerializeField] private float range = 100f;
-    [SerializeField] private int damage = 25;
+    [Header("Escopeta")]
+    [SerializeField] private float range = 30f;
+    [SerializeField] private int pelletsPerShot = 8;
+    [SerializeField] private int damagePerPellet = 8;
 
     [Header("Munición")]
-    [SerializeField] private int magazineSize = 6;
+    [SerializeField] private int maxLoadedShells = 2;
     [SerializeField] private float reloadTime = 2f;
 
     [Header("Dispersión")]
-    [SerializeField] private float spread = 0.03f;
+    [SerializeField] private float spread = 0.08f;
+
+    [Header("Falloff")]
+    [SerializeField] private float fullDamageDistance = 5f;
+    [SerializeField] private float minimumDamageDistance = 12f;
+    [SerializeField] private float minimumDamageMultiplier = 0.3f;
 
     [Header("Tracer")]
-    [SerializeField] private Color tracerColor = Color.yellow;
+    [SerializeField] private Color tracerColor = Color.red;
     [SerializeField] private float tracerDuration = 0.5f;
-    [SerializeField] private float tracerWidth = 0.06f;
+    [SerializeField] private float tracerWidth = 0.035f;
 
     [Header("Origen visual del tracer")]
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
 
-    private int currentAmmo;
+    private PWeaponInventory weaponInventory;
     private bool isReloading;
 
-    private PWeaponInventory weaponInventory;
-
-    // Datos públicos para el HUD
-    public string WeaponName => weaponName;
-    public int CurrentAmmo => currentAmmo;
-    public int MagazineSize => magazineSize;
     public bool IsReloading => isReloading;
 
     private void Awake()
     {
         weaponInventory =
             GetComponent<PWeaponInventory>();
-    }
-
-    public override void Spawned()
-    {
-        if (Object.HasStateAuthority)
-        {
-            currentAmmo = magazineSize;
-            isReloading = false;
-        }
     }
 
     private void Update()
@@ -73,16 +61,13 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
-        // -------------------------
-        // SOLO FUNCIONA SI
-        // LA PISTOLA ESTÁ EQUIPADA
-        // -------------------------
-
-        if (weaponInventory != null &&
-            !weaponInventory.IsPistolEquipped())
-        {
+        if (weaponInventory == null)
             return;
-        }
+
+        // Solo funciona si la escopeta
+        // está seleccionada.
+        if (!weaponInventory.IsShotgunEquipped())
+            return;
 
         // -------------------------
         // RECARGA MANUAL
@@ -93,8 +78,8 @@ public class PShooting : NetworkBehaviour
             TryReload();
         }
 
-        // Mientras recargamos
-        // no podemos disparar.
+        // Mientras recarga,
+        // no puede disparar.
         if (isReloading)
             return;
 
@@ -110,23 +95,28 @@ public class PShooting : NetworkBehaviour
 
     private void TryShoot()
     {
-        if (currentAmmo <= 0)
+        if (weaponInventory.ShotgunLoaded <= 0)
         {
+            Debug.Log(
+                "SHOTGUN VACÍA"
+            );
+
             TryReload();
+
             return;
         }
 
-        currentAmmo--;
-
-        Shoot();
+        weaponInventory.ShotgunLoaded--;
 
         Debug.Log(
-            $"DISPARO | Balas: {currentAmmo}/{magazineSize}"
+            $"SHOTGUN FIRE | " +
+            $"Cargados: {weaponInventory.ShotgunLoaded} | " +
+            $"Reserva: {weaponInventory.ShotgunReserve}"
         );
 
-        // Recarga automática
-        // al gastar la última bala.
-        if (currentAmmo <= 0)
+        FirePellets();
+
+        if (weaponInventory.ShotgunLoaded <= 0)
         {
             TryReload();
         }
@@ -134,40 +124,92 @@ public class PShooting : NetworkBehaviour
 
     private void TryReload()
     {
-        // Ya estamos recargando.
         if (isReloading)
             return;
 
-        // Cargador lleno.
-        if (currentAmmo >= magazineSize)
+        if (weaponInventory.ShotgunLoaded >= maxLoadedShells)
             return;
+
+        if (weaponInventory.ShotgunReserve <= 0)
+        {
+            Debug.Log(
+                "SHOTGUN SIN MUNICIÓN DE RESERVA"
+            );
+
+            return;
+        }
 
         StartCoroutine(
             ReloadRoutine()
         );
     }
 
-    private void Shoot()
+    private IEnumerator ReloadRoutine()
+    {
+        if (isReloading)
+            yield break;
+
+        isReloading = true;
+
+        Debug.Log(
+            $"SHOTGUN RELOADING... | " +
+            $"Cargados: {weaponInventory.ShotgunLoaded} | " +
+            $"Reserva: {weaponInventory.ShotgunReserve}"
+        );
+
+        yield return new WaitForSeconds(
+            reloadTime
+        );
+
+        int shellsNeeded =
+            maxLoadedShells -
+            weaponInventory.ShotgunLoaded;
+
+        int shellsToLoad =
+            Mathf.Min(
+                shellsNeeded,
+                weaponInventory.ShotgunReserve
+            );
+
+        weaponInventory.ShotgunLoaded +=
+            shellsToLoad;
+
+        weaponInventory.ShotgunReserve -=
+            shellsToLoad;
+
+        isReloading = false;
+
+        Debug.Log(
+            $"SHOTGUN RELOAD COMPLETE | " +
+            $"Cargados: {weaponInventory.ShotgunLoaded} | " +
+            $"Reserva: {weaponInventory.ShotgunReserve}"
+        );
+    }
+
+    private void FirePellets()
     {
         if (playerCamera == null)
         {
             Debug.LogError(
-                "PShooting: Player Camera no está asignada."
+                "PShotgun: Player Camera no está asignada."
             );
 
             return;
         }
 
-        // -------------------------
-        // DIRECCIÓN BASE
-        // -------------------------
+        for (
+            int i = 0;
+            i < pelletsPerShot;
+            i++)
+        {
+            FireSinglePellet();
+        }
+    }
 
+    private void FireSinglePellet()
+    {
         Vector3 shotDirection =
             playerCamera.transform.forward;
-
-        // -------------------------
-        // DISPERSIÓN
-        // -------------------------
 
         float randomHorizontal =
             Random.Range(
@@ -191,10 +233,6 @@ public class PShooting : NetworkBehaviour
 
         shotDirection.Normalize();
 
-        // -------------------------
-        // RAYCAST
-        // -------------------------
-
         Ray ray = new Ray(
             playerCamera.transform.position,
             shotDirection
@@ -210,17 +248,38 @@ public class PShooting : NetworkBehaviour
             tracerEndPoint =
                 hit.point;
 
-            Debug.Log(
-                $"Disparo impactó en: {hit.collider.name}"
-            );
-
             PHealth health =
                 hit.collider.GetComponentInParent<PHealth>();
 
             if (health != null)
             {
+                float damageMultiplier =
+                    CalculateDamageFalloff(
+                        hit.distance
+                    );
+
+                int finalDamage =
+                    Mathf.RoundToInt(
+                        damagePerPellet *
+                        damageMultiplier
+                    );
+
+                // Seguridad para que un pellet
+                // nunca haga daño negativo.
+                finalDamage =
+                    Mathf.Max(
+                        0,
+                        finalDamage
+                    );
+
+                Debug.Log(
+                    $"SHOTGUN HIT | " +
+                    $"Distancia: {hit.distance:F1}m | " +
+                    $"Daño pellet: {finalDamage}"
+                );
+
                 health.RPC_TakeDamage(
-                    damage,
+                    finalDamage,
                     Object
                 );
             }
@@ -231,15 +290,7 @@ public class PShooting : NetworkBehaviour
                 ray.origin +
                 ray.direction *
                 range;
-
-            Debug.Log(
-                "Disparo no impactó en nada"
-            );
         }
-
-        // -------------------------
-        // ORIGEN VISUAL DEL TRACER
-        // -------------------------
 
         Vector3 tracerStart =
             playerCamera.transform.position +
@@ -247,10 +298,6 @@ public class PShooting : NetworkBehaviour
             tracerForwardOffset -
             playerCamera.transform.up *
             tracerDownOffset;
-
-        // -------------------------
-        // TRACER
-        // -------------------------
 
         StartCoroutine(
             ShowTracer(
@@ -260,13 +307,46 @@ public class PShooting : NetworkBehaviour
         );
     }
 
+    private float CalculateDamageFalloff(
+        float distance)
+    {
+        // Hasta esta distancia:
+        // daño completo.
+        if (distance <= fullDamageDistance)
+        {
+            return 1f;
+        }
+
+        // Desde esta distancia:
+        // daño mínimo.
+        if (distance >= minimumDamageDistance)
+        {
+            return minimumDamageMultiplier;
+        }
+
+        // Entre ambas distancias:
+        // bajamos progresivamente.
+        float t =
+            Mathf.InverseLerp(
+                fullDamageDistance,
+                minimumDamageDistance,
+                distance
+            );
+
+        return Mathf.Lerp(
+            1f,
+            minimumDamageMultiplier,
+            t
+        );
+    }
+
     private IEnumerator ShowTracer(
         Vector3 start,
         Vector3 end)
     {
         GameObject tracerObject =
             new GameObject(
-                "BulletTracer"
+                "ShotgunPelletTracer"
             );
 
         LineRenderer lineRenderer =
@@ -319,34 +399,6 @@ public class PShooting : NetworkBehaviour
 
         Destroy(
             tracerObject
-        );
-    }
-
-    private IEnumerator ReloadRoutine()
-    {
-        if (isReloading)
-            yield break;
-
-        isReloading = true;
-
-        Debug.Log(
-            $"RECARGANDO... | " +
-            $"Balas actuales: {currentAmmo}/{magazineSize}"
-        );
-
-        yield return new WaitForSeconds(
-            reloadTime
-        );
-
-        currentAmmo =
-            magazineSize;
-
-        isReloading =
-            false;
-
-        Debug.Log(
-            $"RECARGA COMPLETA | " +
-            $"Balas: {currentAmmo}/{magazineSize}"
         );
     }
 }

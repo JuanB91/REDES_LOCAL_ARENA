@@ -79,7 +79,10 @@ public class PLook : NetworkBehaviour
             0f
         );
     }
-
+    public void SyncHorizontalRotation()
+    {
+        horizontalRotation = transform.eulerAngles.y;
+    }
     public override void FixedUpdateNetwork()
     {
         if (Object == null ||

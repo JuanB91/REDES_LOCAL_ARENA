@@ -19,7 +19,19 @@ public class NetworkGameManager : NetworkBehaviour
     public PlayerRef Winner { get; set; }
 
     public int KillsToWin => killsToWin;
+    
+    [SerializeField] private Transform spawnPointP1;
+    [SerializeField] private Transform spawnPointP2;
+    [SerializeField] private Transform lookTarget;
 
+    public Transform LookTarget => lookTarget;
+    public Transform GetSpawnPoint(PlayerRef player)
+    {
+        if (player.PlayerId == 1)
+            return spawnPointP1;
+
+        return spawnPointP2;
+    }
     public bool IsReady { get; private set; }
 
     public bool CanPlay

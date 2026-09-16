@@ -6,7 +6,9 @@ public class PHealth : NetworkBehaviour
 {
     [Header("Vida")]
     [SerializeField] private int maxHealth = 100;
+
     public int MaxHealth => maxHealth;
+
     [Header("Respawn")]
     [SerializeField] private float respawnTime = 3f;
 
@@ -25,12 +27,13 @@ public class PHealth : NetworkBehaviour
     private CharacterController controller;
     private PMovement movement;
     private PShooting shooting;
-
+    private PLook playerLook;
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
         movement = GetComponent<PMovement>();
         shooting = GetComponent<PShooting>();
+        playerLook = GetComponent<PLook>();
     }
 
     public override void Spawned()
@@ -138,23 +141,38 @@ public class PHealth : NetworkBehaviour
         if (IsDead == false)
             yield break;
 
-        Vector3 respawnPosition;
+        NetworkGameManager gameManager =
+            FindFirstObjectByType<NetworkGameManager>();
 
-        if (Object.StateAuthority.PlayerId == 1)
+        if (gameManager == null)
         {
-            respawnPosition =
-                new Vector3(-3f, 1f, 0f);
+            Debug.LogError(
+                "No se encontró NetworkGameManager para respawn."
+            );
+
+            yield break;
         }
-        else
+
+        Transform spawnPoint =
+            gameManager.GetSpawnPoint(
+                Object.StateAuthority
+            );
+
+        if (spawnPoint == null)
         {
-            respawnPosition =
-                new Vector3(3f, 1f, 0f);
+            Debug.LogError(
+                "No se encontró SpawnPoint para este jugador."
+            );
+
+            yield break;
         }
 
         if (controller != null)
             controller.enabled = false;
 
-        transform.position = respawnPosition;
+        transform.position = spawnPoint.position;
+
+        LookAtTarget(gameManager);
 
         Health = maxHealth;
         IsDead = false;
@@ -164,7 +182,9 @@ public class PHealth : NetworkBehaviour
 
         UpdateDeadState();
 
-        Debug.Log("Jugador respawneado");
+        Debug.Log(
+            $"Jugador respawneado en {spawnPoint.name}"
+        );
     }
 
     [Rpc(
@@ -180,23 +200,38 @@ public class PHealth : NetworkBehaviour
         Kills = 0;
         IsDead = false;
 
-        Vector3 spawnPosition;
+        NetworkGameManager gameManager =
+            FindFirstObjectByType<NetworkGameManager>();
 
-        if (Object.StateAuthority.PlayerId == 1)
+        if (gameManager == null)
         {
-            spawnPosition =
-                new Vector3(-3f, 1f, 0f);
+            Debug.LogError(
+                "No se encontró NetworkGameManager para reset."
+            );
+
+            return;
         }
-        else
+
+        Transform spawnPoint =
+            gameManager.GetSpawnPoint(
+                Object.StateAuthority
+            );
+
+        if (spawnPoint == null)
         {
-            spawnPosition =
-                new Vector3(3f, 1f, 0f);
+            Debug.LogError(
+                "No se encontró SpawnPoint para este jugador."
+            );
+
+            return;
         }
 
         if (controller != null)
             controller.enabled = false;
 
-        transform.position = spawnPosition;
+        transform.position = spawnPoint.position;
+
+        LookAtTarget(gameManager);
 
         if (controller != null)
             controller.enabled = true;
@@ -204,8 +239,42 @@ public class PHealth : NetworkBehaviour
         UpdateDeadState();
 
         Debug.Log(
-            $"Player {Object.StateAuthority.PlayerId} reiniciado"
+            $"Player {Object.StateAuthority.PlayerId} " +
+            $"reiniciado en {spawnPoint.name}"
         );
+    }
+
+    private void LookAtTarget(
+      NetworkGameManager gameManager)
+    {
+        if (gameManager.LookTarget == null)
+        {
+            Debug.LogWarning(
+                "LOOK TARGET no está asignado en NetworkGameManager."
+            );
+
+            return;
+        }
+
+        Vector3 lookDirection =
+            gameManager.LookTarget.position -
+            transform.position;
+
+        lookDirection.y = 0f;
+
+        if (lookDirection.sqrMagnitude > 0.001f)
+        {
+            transform.rotation =
+                Quaternion.LookRotation(
+                    lookDirection.normalized
+                );
+
+           
+            if (playerLook != null)
+            {
+                playerLook.SyncHorizontalRotation();
+            }
+        }
     }
 
     private void UpdateDeadState()

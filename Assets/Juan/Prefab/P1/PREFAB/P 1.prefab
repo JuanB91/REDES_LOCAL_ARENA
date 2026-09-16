@@ -326,6 +326,8 @@ GameObject:
   - component: {fileID: 7953190032709490211}
   - component: {fileID: 3276788369555208890}
   - component: {fileID: 5711390799615097701}
+  - component: {fileID: 1037776481514168899}
+  - component: {fileID: 4962490472558666622}
   m_Layer: 0
   m_Name: P 1
   m_TagString: Untagged
@@ -373,6 +375,8 @@ MonoBehaviour:
   - {fileID: 7953190032709490211}
   - {fileID: 3276788369555208890}
   - {fileID: 5711390799615097701}
+  - {fileID: 1037776481514168899}
+  - {fileID: 4962490472558666622}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7220554690742793090
 MonoBehaviour:
@@ -454,6 +458,10 @@ MonoBehaviour:
   moveSpeed: 6
   jumpForce: 6
   gravity: -10
+  ghostStepDistance: 15
+  ghostStepDuration: 0.25
+  doubleTapTime: 0.25
+  ghostStepCooldown: 1
 --- !u!114 &7953190032709490211
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -483,8 +491,17 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   playerCamera: {fileID: 7063423089720329057}
+  weaponName: PISTOL
   range: 100
-  damage: 25
+  damage: 20
+  magazineSize: 6
+  reloadTime: 2
+  spread: 0.02
+  tracerColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  tracerDuration: 5
+  tracerWidth: 0.06
+  tracerForwardOffset: 0.5
+  tracerDownOffset: 0.15
 --- !u!114 &5711390799615097701
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -504,6 +521,47 @@ MonoBehaviour:
   _Kills: 0
   _IsDead:
     RawValue: 0
+--- !u!114 &1037776481514168899
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b060e064cf42fec4987af90fe1632d14, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _HasShotgun:
+    RawValue: 0
+  _ShotgunLoaded: 0
+  _ShotgunReserve: 0
+  _CurrentWeapon: 0
+--- !u!114 &4962490472558666622
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfabf740e4394ba468169546dcd34ee9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerCamera: {fileID: 7063423089720329057}
+  range: 30
+  pelletsPerShot: 8
+  damagePerPellet: 8
+  maxLoadedShells: 2
+  reloadTime: 3
+  spread: 0.08
+  tracerColor: {r: 1, g: 0, b: 0, a: 1}
+  tracerDuration: 0.5
+  tracerWidth: 0.035
+  tracerForwardOffset: 0.5
+  tracerDownOffset: 0.15
 --- !u!1 &8293040580107073676
 GameObject:
   m_ObjectHideFlags: 0
