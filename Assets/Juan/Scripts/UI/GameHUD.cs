@@ -48,9 +48,9 @@ public class GameHUD : MonoBehaviour
 
     private void Update()
     {
-        // -------------------------
+        // ============================
         // NETWORK RUNNER
-        // -------------------------
+        // ============================
 
         if (runner == null)
         {
@@ -61,9 +61,9 @@ public class GameHUD : MonoBehaviour
                 return;
         }
 
-        // -------------------------
+        // ============================
         // DEBUG PLAYER LOCAL
-        // -------------------------
+        // ============================
 
         if (!playerLogged &&
             runner.IsRunning &&
@@ -77,9 +77,9 @@ public class GameHUD : MonoBehaviour
             playerLogged = true;
         }
 
-        // -------------------------
+        // ============================
         // GAME MANAGER
-        // -------------------------
+        // ============================
 
         if (gameManager == null)
         {
@@ -93,18 +93,18 @@ public class GameHUD : MonoBehaviour
         if (!gameManager.IsReady)
             return;
 
-        // -------------------------
+        // ============================
         // ACTUALIZAR HUD
-        // -------------------------
+        // ============================
 
         UpdateScore();
         UpdateWaitingState();
         UpdateHealth();
         UpdateWeapon();
 
-        // -------------------------
+        // ============================
         // GAME OVER
-        // -------------------------
+        // ============================
 
         if (gameManager.GameOver)
         {
@@ -115,6 +115,10 @@ public class GameHUD : MonoBehaviour
             HideResult();
         }
     }
+
+    // ============================
+    // WAITING
+    // ============================
 
     private void UpdateWaitingState()
     {
@@ -152,6 +156,10 @@ public class GameHUD : MonoBehaviour
             Debug.Log("FIGHT!");
         }
     }
+
+    // ============================
+    // VIDA
+    // ============================
 
     private void UpdateHealth()
     {
@@ -197,6 +205,10 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    // ============================
+    // ARMAS
+    // ============================
+
     private void UpdateWeapon()
     {
         if (runner == null ||
@@ -216,18 +228,30 @@ public class GameHUD : MonoBehaviour
         PWeaponInventory inventory =
             playerObject.GetComponent<PWeaponInventory>();
 
-        PShooting shooting =
+        PShooting pistol =
             playerObject.GetComponent<PShooting>();
 
         PShotgun shotgun =
             playerObject.GetComponent<PShotgun>();
 
+        PAssaultRifle assaultRifle =
+            playerObject.GetComponent<PAssaultRifle>();
+
+        PSniper sniper =
+            playerObject.GetComponent<PSniper>();
+
+        PRocketLauncher rocketLauncher =
+            playerObject.GetComponent<PRocketLauncher>();
+
+        PGrenade grenade =
+            playerObject.GetComponent<PGrenade>();
+
         if (inventory == null)
             return;
 
-        // -------------------------
+        // ============================
         // NOMBRE DEL ARMA
-        // -------------------------
+        // ============================
 
         if (weaponText != null)
         {
@@ -237,9 +261,9 @@ public class GameHUD : MonoBehaviour
                 inventory.CurrentWeaponName;
         }
 
-        // -------------------------
+        // ============================
         // MUNICIÓN
-        // -------------------------
+        // ============================
 
         if (ammoText != null)
         {
@@ -247,16 +271,24 @@ public class GameHUD : MonoBehaviour
 
             switch (inventory.CurrentWeapon)
             {
+                // -------------------------
+                // PISTOL
+                // -------------------------
+
                 case PWeaponInventory.WeaponType.Pistol:
 
-                    if (shooting != null)
+                    if (pistol != null)
                     {
                         ammoText.text =
-                            $"{shooting.CurrentAmmo} / " +
-                            $"{shooting.MagazineSize}";
+                            $"{pistol.CurrentAmmo} / " +
+                            $"{pistol.MagazineSize}";
                     }
 
                     break;
+
+                // -------------------------
+                // SHOTGUN
+                // -------------------------
 
                 case PWeaponInventory.WeaponType.Shotgun:
 
@@ -266,53 +298,73 @@ public class GameHUD : MonoBehaviour
 
                     break;
 
+                // -------------------------
+                // ASSAULT RIFLE
+                // -------------------------
+
                 case PWeaponInventory.WeaponType.AssaultRifle:
 
                     ammoText.text =
-                        "-- / --";
+                        $"{inventory.AssaultRifleLoaded} / " +
+                        $"{inventory.AssaultRifleReserve}";
 
                     break;
+
+                // -------------------------
+                // SNIPER
+                // -------------------------
 
                 case PWeaponInventory.WeaponType.Sniper:
 
                     ammoText.text =
-                        "-- / --";
+                        $"{inventory.SniperLoaded} / " +
+                        $"{inventory.SniperReserve}";
 
                     break;
+
+                // -------------------------
+                // ROCKET LAUNCHER
+                // -------------------------
 
                 case PWeaponInventory.WeaponType.RocketLauncher:
 
                     ammoText.text =
-                        "-- / --";
+                        $"{inventory.RocketLauncherLoaded} / " +
+                        $"{inventory.RocketLauncherReserve}";
 
                     break;
+
+                // -------------------------
+                // GRENADE
+                // -------------------------
 
                 case PWeaponInventory.WeaponType.Grenade:
 
                     ammoText.text =
-                        "-- / --";
+                        $"{inventory.GrenadeLoaded} / " +
+                        $"{inventory.GrenadeReserve}";
 
                     break;
             }
         }
 
-        // -------------------------
+        // ============================
         // RELOADING
-        // -------------------------
+        // ============================
 
         if (reloadText != null)
         {
             bool showReloading = false;
 
-            // PISTOLA
+            // PISTOL
             if (inventory.IsPistolEquipped() &&
-                shooting != null)
+                pistol != null)
             {
                 showReloading =
-                    shooting.IsReloading;
+                    pistol.IsReloading;
             }
 
-            // ESCOPETA
+            // SHOTGUN
             else if (inventory.IsShotgunEquipped() &&
                      shotgun != null)
             {
@@ -320,11 +372,47 @@ public class GameHUD : MonoBehaviour
                     shotgun.IsReloading;
             }
 
+            // ASSAULT RIFLE
+            else if (inventory.IsAssaultRifleEquipped() &&
+                     assaultRifle != null)
+            {
+                showReloading =
+                    assaultRifle.IsReloading;
+            }
+
+            // SNIPER
+            else if (inventory.IsSniperEquipped() &&
+                     sniper != null)
+            {
+                showReloading =
+                    sniper.IsReloading;
+            }
+
+            // ROCKET LAUNCHER
+            else if (inventory.IsRocketLauncherEquipped() &&
+                     rocketLauncher != null)
+            {
+                showReloading =
+                    rocketLauncher.IsReloading;
+            }
+
+            // GRENADE
+            else if (inventory.IsGrenadeEquipped() &&
+                     grenade != null)
+            {
+                showReloading =
+                    grenade.IsReloading;
+            }
+
             reloadText.gameObject.SetActive(
                 showReloading
             );
         }
     }
+
+    // ============================
+    // SCORE
+    // ============================
 
     private void UpdateScore()
     {
@@ -366,6 +454,10 @@ public class GameHUD : MonoBehaviour
                 $"P2: {player2Kills}";
         }
     }
+
+    // ============================
+    // RESULTADO
+    // ============================
 
     private void ShowResult()
     {
@@ -433,6 +525,10 @@ public class GameHUD : MonoBehaviour
 
         matchWasStarted = false;
     }
+
+    // ============================
+    // RESTART
+    // ============================
 
     public void RestartGame()
     {

@@ -2,49 +2,91 @@ using System.Collections;
 using Fusion;
 using UnityEngine;
 
-public class PShotgun : NetworkBehaviour
+public class PSniper : NetworkBehaviour
 {
     [Header("Referencias")]
     [SerializeField] private Camera playerCamera;
 
-    [Header("Escopeta")]
-    [SerializeField] private float range = 30f;
-    [SerializeField] private int pelletsPerShot = 8;
-    [SerializeField] private int damagePerPellet = 8;
+    // ============================
+    // SNIPER
+    // ============================
 
-    [Header("Munición")]
-    [SerializeField] private int maxLoadedShells = 2;
-    [SerializeField] private float reloadTime = 2f;
+    [Header("Sniper")]
+    [SerializeField] private float range = 200f;
+    [SerializeField] private int damage = 75;
+
+    // ============================
+    // CADENCIA
+    // ============================
+
+    [Header("Cadencia")]
+    [SerializeField] private float timeBetweenShots = 1f;
+
+    // ============================
+    // RECARGA
+    // ============================
+
+    [Header("Recarga")]
+    [SerializeField] private float reloadTime = 2.8f;
+
+    // ============================
+    // DISPERSIÓN
+    // ============================
 
     [Header("Dispersión")]
-    [SerializeField] private float spread = 0.08f;
+    [SerializeField] private float spread = 0.002f;
 
-    [Header("Falloff")]
-    [SerializeField] private float fullDamageDistance = 5f;
-    [SerializeField] private float minimumDamageDistance = 12f;
-    [SerializeField] private float minimumDamageMultiplier = 0.3f;
+    // ============================
+    // TRACER
+    // ============================
 
     [Header("Tracer")]
     [SerializeField] private Material tracerMaterial;
-    [SerializeField] private Color tracerColor = Color.red;
-    [SerializeField] private float tracerDuration = 0.5f;
-    [SerializeField] private float tracerWidth = 0.035f;
+    [SerializeField] private Color tracerColor = Color.white;
+    [SerializeField] private float tracerDuration = 0.35f;
+    [SerializeField] private float tracerWidth = 0.02f;
 
     [Header("Origen visual del tracer")]
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
 
+    // ============================
+    // REFERENCIAS INTERNAS
+    // ============================
+
     private PWeaponInventory weaponInventory;
 
     private bool isReloading;
+    private float nextShotTime;
+
+    // ============================
+    // DATOS PÚBLICOS PARA HUD
+    // ============================
 
     public bool IsReloading => isReloading;
+
+    public float TimeBetweenShots =>
+        timeBetweenShots;
+
+    public int Damage =>
+        damage;
+
+    public float Range =>
+        range;
+
+    // ============================
+    // AWAKE
+    // ============================
 
     private void Awake()
     {
         weaponInventory =
             GetComponent<PWeaponInventory>();
     }
+
+    // ============================
+    // UPDATE
+    // ============================
 
     private void Update()
     {
@@ -66,9 +108,9 @@ public class PShotgun : NetworkBehaviour
         if (weaponInventory == null)
             return;
 
-        // Solo funciona si la escopeta
+        // Solo funciona si SNIPER
         // está seleccionada.
-        if (!weaponInventory.IsShotgunEquipped())
+        if (!weaponInventory.IsSniperEquipped())
             return;
 
         // -------------------------
@@ -80,7 +122,7 @@ public class PShotgun : NetworkBehaviour
             TryReload();
         }
 
-        // Mientras recarga,
+        // Mientras recarga
         // no puede disparar.
         if (isReloading)
             return;
@@ -95,123 +137,76 @@ public class PShotgun : NetworkBehaviour
         }
     }
 
+    // ============================
+    // INTENTAR DISPARAR
+    // ============================
+
     private void TryShoot()
     {
-        if (weaponInventory.ShotgunLoaded <= 0)
-        {
-            Debug.Log(
-                "SHOTGUN VACÍA"
-            );
-
-            TryReload();
-
-            return;
-        }
-
-        weaponInventory.ShotgunLoaded--;
-
-        Debug.Log(
-            $"SHOTGUN FIRE | " +
-            $"Cargados: {weaponInventory.ShotgunLoaded} | " +
-            $"Reserva: {weaponInventory.ShotgunReserve}"
-        );
-
-        FirePellets();
-
-        if (weaponInventory.ShotgunLoaded <= 0)
+        // Sin balas cargadas.
+        if (weaponInventory.SniperLoaded <= 0)
         {
             TryReload();
+            return;
         }
-    }
 
-    private void TryReload()
-    {
-        if (isReloading)
-            return;
-
-        if (weaponInventory.ShotgunLoaded >= maxLoadedShells)
-            return;
-
-        if (weaponInventory.ShotgunReserve <= 0)
+        // Todavía estamos dentro
+        // del cooldown entre tiros.
+        if (Time.time < nextShotTime)
         {
-            Debug.Log(
-                "SHOTGUN SIN MUNICIÓN DE RESERVA"
-            );
-
             return;
         }
 
-        StartCoroutine(
-            ReloadRoutine()
-        );
-    }
+        // Marcamos cuándo se puede
+        // volver a disparar.
+        nextShotTime =
+            Time.time +
+            timeBetweenShots;
 
-    private IEnumerator ReloadRoutine()
-    {
-        if (isReloading)
-            yield break;
+        // Consumimos una bala.
+        weaponInventory.SniperLoaded--;
 
-        isReloading = true;
-
-        Debug.Log(
-            $"SHOTGUN RELOADING... | " +
-            $"Cargados: {weaponInventory.ShotgunLoaded} | " +
-            $"Reserva: {weaponInventory.ShotgunReserve}"
-        );
-
-        yield return new WaitForSeconds(
-            reloadTime
-        );
-
-        int shellsNeeded =
-            maxLoadedShells -
-            weaponInventory.ShotgunLoaded;
-
-        int shellsToLoad =
-            Mathf.Min(
-                shellsNeeded,
-                weaponInventory.ShotgunReserve
-            );
-
-        weaponInventory.ShotgunLoaded +=
-            shellsToLoad;
-
-        weaponInventory.ShotgunReserve -=
-            shellsToLoad;
-
-        isReloading = false;
+        Shoot();
 
         Debug.Log(
-            $"SHOTGUN RELOAD COMPLETE | " +
-            $"Cargados: {weaponInventory.ShotgunLoaded} | " +
-            $"Reserva: {weaponInventory.ShotgunReserve}"
+            $"SNIPER FIRE | " +
+            $"Cargadas: {weaponInventory.SniperLoaded} | " +
+            $"Reserva: {weaponInventory.SniperReserve}"
         );
+
+        // Si vaciamos el cargador,
+        // recarga automática.
+        if (weaponInventory.SniperLoaded <= 0)
+        {
+            TryReload();
+        }
     }
 
-    private void FirePellets()
+    // ============================
+    // DISPARO
+    // ============================
+
+    private void Shoot()
     {
         if (playerCamera == null)
         {
             Debug.LogError(
-                "PShotgun: Player Camera no está asignada."
+                "PSniper: Player Camera no está asignada."
             );
 
             return;
         }
 
-        for (
-            int i = 0;
-            i < pelletsPerShot;
-            i++)
-        {
-            FireSinglePellet();
-        }
-    }
+        // -------------------------
+        // DIRECCIÓN BASE
+        // -------------------------
 
-    private void FireSinglePellet()
-    {
         Vector3 shotDirection =
             playerCamera.transform.forward;
+
+        // -------------------------
+        // DISPERSIÓN
+        // -------------------------
 
         float randomHorizontal =
             Random.Range(
@@ -235,6 +230,10 @@ public class PShotgun : NetworkBehaviour
 
         shotDirection.Normalize();
 
+        // -------------------------
+        // RAYCAST
+        // -------------------------
+
         Ray ray = new Ray(
             playerCamera.transform.position,
             shotDirection
@@ -250,36 +249,17 @@ public class PShotgun : NetworkBehaviour
             tracerEndPoint =
                 hit.point;
 
+            Debug.Log(
+                $"SNIPER HIT: {hit.collider.name}"
+            );
+
             PHealth health =
                 hit.collider.GetComponentInParent<PHealth>();
 
             if (health != null)
             {
-                float damageMultiplier =
-                    CalculateDamageFalloff(
-                        hit.distance
-                    );
-
-                int finalDamage =
-                    Mathf.RoundToInt(
-                        damagePerPellet *
-                        damageMultiplier
-                    );
-
-                finalDamage =
-                    Mathf.Max(
-                        0,
-                        finalDamage
-                    );
-
-                Debug.Log(
-                    $"SHOTGUN HIT | " +
-                    $"Distancia: {hit.distance:F1}m | " +
-                    $"Daño pellet: {finalDamage}"
-                );
-
                 health.RPC_TakeDamage(
-                    finalDamage,
+                    damage,
                     Object
                 );
             }
@@ -291,6 +271,10 @@ public class PShotgun : NetworkBehaviour
                 ray.direction *
                 range;
         }
+
+        // -------------------------
+        // ORIGEN VISUAL DEL TRACER
+        // -------------------------
 
         Vector3 tracerStart =
             playerCamera.transform.position +
@@ -307,32 +291,82 @@ public class PShotgun : NetworkBehaviour
         );
     }
 
-    private float CalculateDamageFalloff(
-        float distance)
+    // ============================
+    // RECARGA
+    // ============================
+
+    private void TryReload()
     {
-        if (distance <= fullDamageDistance)
+        if (isReloading)
+            return;
+
+        // Cargador lleno.
+        if (weaponInventory.SniperLoaded >=
+            weaponInventory.SniperMagazineSize)
         {
-            return 1f;
+            return;
         }
 
-        if (distance >= minimumDamageDistance)
+        // Sin reserva.
+        if (weaponInventory.SniperReserve <= 0)
         {
-            return minimumDamageMultiplier;
-        }
-
-        float t =
-            Mathf.InverseLerp(
-                fullDamageDistance,
-                minimumDamageDistance,
-                distance
+            Debug.Log(
+                "SNIPER SIN MUNICIÓN DE RESERVA"
             );
 
-        return Mathf.Lerp(
-            1f,
-            minimumDamageMultiplier,
-            t
+            return;
+        }
+
+        StartCoroutine(
+            ReloadRoutine()
         );
     }
+
+    private IEnumerator ReloadRoutine()
+    {
+        if (isReloading)
+            yield break;
+
+        isReloading = true;
+
+        Debug.Log(
+            $"SNIPER RELOADING... | " +
+            $"Cargadas: {weaponInventory.SniperLoaded} | " +
+            $"Reserva: {weaponInventory.SniperReserve}"
+        );
+
+        yield return new WaitForSeconds(
+            reloadTime
+        );
+
+        int bulletsNeeded =
+            weaponInventory.SniperMagazineSize -
+            weaponInventory.SniperLoaded;
+
+        int bulletsToLoad =
+            Mathf.Min(
+                bulletsNeeded,
+                weaponInventory.SniperReserve
+            );
+
+        weaponInventory.SniperLoaded +=
+            bulletsToLoad;
+
+        weaponInventory.SniperReserve -=
+            bulletsToLoad;
+
+        isReloading = false;
+
+        Debug.Log(
+            $"SNIPER RELOAD COMPLETE | " +
+            $"Cargadas: {weaponInventory.SniperLoaded} | " +
+            $"Reserva: {weaponInventory.SniperReserve}"
+        );
+    }
+
+    // ============================
+    // TRACER
+    // ============================
 
     private IEnumerator ShowTracer(
         Vector3 start,
@@ -340,7 +374,7 @@ public class PShotgun : NetworkBehaviour
     {
         GameObject tracerObject =
             new GameObject(
-                "ShotgunPelletTracer"
+                "SniperTracer"
             );
 
         LineRenderer lineRenderer =
@@ -371,7 +405,7 @@ public class PShotgun : NetworkBehaviour
             tracerColor;
 
         // -------------------------
-        // MATERIAL DEL TRACER
+        // MATERIAL
         // -------------------------
 
         if (tracerMaterial != null)

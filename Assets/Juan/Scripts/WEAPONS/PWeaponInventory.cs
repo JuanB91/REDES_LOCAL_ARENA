@@ -19,6 +19,7 @@ public class PWeaponInventory : NetworkBehaviour
 
     [Header("Shotgun")]
     [SerializeField] private int maxShotgunAmmo = 16;
+    [SerializeField] private int shotgunMagazineSize = 2;
 
     [Networked]
     public NetworkBool HasShotgun { get; set; }
@@ -30,6 +31,74 @@ public class PWeaponInventory : NetworkBehaviour
     public int ShotgunReserve { get; set; }
 
     // ============================
+    // ASSAULT RIFLE
+    // ============================
+
+    [Header("Assault Rifle")]
+    [SerializeField] private int maxAssaultRifleAmmo = 120;
+    [SerializeField] private int assaultRifleMagazineSize = 30;
+
+    [Networked]
+    public NetworkBool HasAssaultRifle { get; set; }
+
+    [Networked]
+    public int AssaultRifleLoaded { get; set; }
+
+    [Networked]
+    public int AssaultRifleReserve { get; set; }
+
+    // ============================
+    // SNIPER
+    // ============================
+
+    [Header("Sniper")]
+    [SerializeField] private int maxSniperAmmo = 20;
+    [SerializeField] private int sniperMagazineSize = 5;
+
+    [Networked]
+    public NetworkBool HasSniper { get; set; }
+
+    [Networked]
+    public int SniperLoaded { get; set; }
+
+    [Networked]
+    public int SniperReserve { get; set; }
+
+    // ============================
+    // ROCKET LAUNCHER
+    // ============================
+
+    [Header("Rocket Launcher")]
+    [SerializeField] private int maxRocketLauncherAmmo = 8;
+    [SerializeField] private int rocketLauncherMagazineSize = 1;
+
+    [Networked]
+    public NetworkBool HasRocketLauncher { get; set; }
+
+    [Networked]
+    public int RocketLauncherLoaded { get; set; }
+
+    [Networked]
+    public int RocketLauncherReserve { get; set; }
+
+    // ============================
+    // GRENADE
+    // ============================
+
+    [Header("Grenade")]
+    [SerializeField] private int maxGrenadeAmmo = 5;
+    [SerializeField] private int grenadeMagazineSize = 1;
+
+    [Networked]
+    public NetworkBool HasGrenade { get; set; }
+
+    [Networked]
+    public int GrenadeLoaded { get; set; }
+
+    [Networked]
+    public int GrenadeReserve { get; set; }
+
+    // ============================
     // ARMA ACTUAL
     // ============================
 
@@ -38,7 +107,44 @@ public class PWeaponInventory : NetworkBehaviour
     [Networked]
     public WeaponType CurrentWeapon { get; set; }
 
-    // Nombre que utiliza el HUD.
+    // ============================
+    // PROPIEDADES PÚBLICAS
+    // ============================
+
+    public int MaxShotgunAmmo =>
+        maxShotgunAmmo;
+
+    public int ShotgunMagazineSize =>
+        shotgunMagazineSize;
+
+    public int MaxAssaultRifleAmmo =>
+        maxAssaultRifleAmmo;
+
+    public int AssaultRifleMagazineSize =>
+        assaultRifleMagazineSize;
+
+    public int MaxSniperAmmo =>
+        maxSniperAmmo;
+
+    public int SniperMagazineSize =>
+        sniperMagazineSize;
+
+    public int MaxRocketLauncherAmmo =>
+        maxRocketLauncherAmmo;
+
+    public int RocketLauncherMagazineSize =>
+        rocketLauncherMagazineSize;
+
+    public int MaxGrenadeAmmo =>
+        maxGrenadeAmmo;
+
+    public int GrenadeMagazineSize =>
+        grenadeMagazineSize;
+
+    // ============================
+    // NOMBRE DEL ARMA
+    // ============================
+
     public string CurrentWeaponName
     {
         get
@@ -75,16 +181,37 @@ public class PWeaponInventory : NetworkBehaviour
 
     public override void Spawned()
     {
-        if (Object.HasStateAuthority)
-        {
-            HasShotgun = false;
+        if (!Object.HasStateAuthority)
+            return;
 
-            ShotgunLoaded = 0;
-            ShotgunReserve = 0;
+        // Shotgun
+        HasShotgun = false;
+        ShotgunLoaded = 0;
+        ShotgunReserve = 0;
 
-            CurrentWeapon =
-                WeaponType.Pistol;
-        }
+        // Assault Rifle
+        HasAssaultRifle = false;
+        AssaultRifleLoaded = 0;
+        AssaultRifleReserve = 0;
+
+        // Sniper
+        HasSniper = false;
+        SniperLoaded = 0;
+        SniperReserve = 0;
+
+        // Rocket Launcher
+        HasRocketLauncher = false;
+        RocketLauncherLoaded = 0;
+        RocketLauncherReserve = 0;
+
+        // Grenade
+        HasGrenade = false;
+        GrenadeLoaded = 0;
+        GrenadeReserve = 0;
+
+        // Arma inicial
+        CurrentWeapon =
+            WeaponType.Pistol;
     }
 
     // ============================
@@ -99,28 +226,19 @@ public class PWeaponInventory : NetworkBehaviour
             return;
         }
 
-        // -------------------------
-        // E = SIGUIENTE ARMA
-        // -------------------------
-
+        // E = siguiente arma
         if (Input.GetKeyDown(KeyCode.E))
         {
             SelectNextWeapon();
         }
 
-        // -------------------------
-        // Q = ARMA ANTERIOR
-        // -------------------------
-
+        // Q = arma anterior
         if (Input.GetKeyDown(KeyCode.Q))
         {
             SelectPreviousWeapon();
         }
 
-        // -------------------------
-        // RUEDA DEL MOUSE
-        // -------------------------
-
+        // Rueda del mouse
         float scroll =
             Input.GetAxis(
                 "Mouse ScrollWheel"
@@ -203,46 +321,35 @@ public class PWeaponInventory : NetworkBehaviour
     }
 
     // ============================
-    // PICKUP ESCOPETA
+    // PICKUP SHOTGUN
     // ============================
 
-    public void AddShotgun(int ammoAmount)
+    public void AddShotgun(
+        int ammoAmount)
     {
         if (!Object.HasStateAuthority)
             return;
 
         HasShotgun = true;
 
-        // -------------------------
-        // MUNICIÓN TOTAL ACTUAL
-        // -------------------------
-
         int currentTotalAmmo =
             ShotgunLoaded +
             ShotgunReserve;
 
-        // Cuánto espacio queda hasta
-        // alcanzar el máximo permitido.
         int availableSpace =
             maxShotgunAmmo -
             currentTotalAmmo;
 
-        // Ya estamos llenos.
         if (availableSpace <= 0)
         {
             Debug.Log(
                 $"SHOTGUN AMMO FULL | " +
-                $"Cargados: {ShotgunLoaded} | " +
-                $"Reserva: {ShotgunReserve} | " +
                 $"Total: {currentTotalAmmo}/{maxShotgunAmmo}"
             );
 
             return;
         }
 
-        // El pickup intenta entregar toda
-        // su munición, pero nunca superamos
-        // el máximo.
         int ammoToAdd =
             Mathf.Min(
                 ammoAmount,
@@ -252,43 +359,31 @@ public class PWeaponInventory : NetworkBehaviour
         int ammoActuallyAdded =
             ammoToAdd;
 
-        // -------------------------
-        // 1. COMPLETAMOS LOS 2 CAÑONES
-        // -------------------------
-
-        int shellsNeeded =
-            2 -
+        int bulletsNeeded =
+            shotgunMagazineSize -
             ShotgunLoaded;
 
-        if (shellsNeeded > 0 &&
+        if (bulletsNeeded > 0 &&
             ammoToAdd > 0)
         {
-            int shellsToLoad =
+            int bulletsToLoad =
                 Mathf.Min(
-                    shellsNeeded,
+                    bulletsNeeded,
                     ammoToAdd
                 );
 
             ShotgunLoaded +=
-                shellsToLoad;
+                bulletsToLoad;
 
             ammoToAdd -=
-                shellsToLoad;
+                bulletsToLoad;
         }
-
-        // -------------------------
-        // 2. EL RESTO VA A RESERVA
-        // -------------------------
 
         if (ammoToAdd > 0)
         {
             ShotgunReserve +=
                 ammoToAdd;
         }
-
-        // -------------------------
-        // RESULTADO
-        // -------------------------
 
         int finalTotalAmmo =
             ShotgunLoaded +
@@ -300,6 +395,326 @@ public class PWeaponInventory : NetworkBehaviour
             $"Cargados: {ShotgunLoaded} | " +
             $"Reserva: {ShotgunReserve} | " +
             $"Total: {finalTotalAmmo}/{maxShotgunAmmo}"
+        );
+    }
+
+    // ============================
+    // PICKUP ASSAULT RIFLE
+    // ============================
+
+    public void AddAssaultRifle(
+        int ammoAmount)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        HasAssaultRifle = true;
+
+        int currentTotalAmmo =
+            AssaultRifleLoaded +
+            AssaultRifleReserve;
+
+        int availableSpace =
+            maxAssaultRifleAmmo -
+            currentTotalAmmo;
+
+        if (availableSpace <= 0)
+        {
+            Debug.Log(
+                $"ASSAULT RIFLE AMMO FULL | " +
+                $"Total: {currentTotalAmmo}/{maxAssaultRifleAmmo}"
+            );
+
+            return;
+        }
+
+        int ammoToAdd =
+            Mathf.Min(
+                ammoAmount,
+                availableSpace
+            );
+
+        int ammoActuallyAdded =
+            ammoToAdd;
+
+        int bulletsNeeded =
+            assaultRifleMagazineSize -
+            AssaultRifleLoaded;
+
+        if (bulletsNeeded > 0 &&
+            ammoToAdd > 0)
+        {
+            int bulletsToLoad =
+                Mathf.Min(
+                    bulletsNeeded,
+                    ammoToAdd
+                );
+
+            AssaultRifleLoaded +=
+                bulletsToLoad;
+
+            ammoToAdd -=
+                bulletsToLoad;
+        }
+
+        if (ammoToAdd > 0)
+        {
+            AssaultRifleReserve +=
+                ammoToAdd;
+        }
+
+        int finalTotalAmmo =
+            AssaultRifleLoaded +
+            AssaultRifleReserve;
+
+        Debug.Log(
+            $"ASSAULT RIFLE PICKUP | " +
+            $"+{ammoActuallyAdded} balas | " +
+            $"Cargadas: {AssaultRifleLoaded} | " +
+            $"Reserva: {AssaultRifleReserve} | " +
+            $"Total: {finalTotalAmmo}/{maxAssaultRifleAmmo}"
+        );
+    }
+
+    // ============================
+    // PICKUP SNIPER
+    // ============================
+
+    public void AddSniper(
+        int ammoAmount)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        HasSniper = true;
+
+        int currentTotalAmmo =
+            SniperLoaded +
+            SniperReserve;
+
+        int availableSpace =
+            maxSniperAmmo -
+            currentTotalAmmo;
+
+        if (availableSpace <= 0)
+        {
+            Debug.Log(
+                $"SNIPER AMMO FULL | " +
+                $"Total: {currentTotalAmmo}/{maxSniperAmmo}"
+            );
+
+            return;
+        }
+
+        int ammoToAdd =
+            Mathf.Min(
+                ammoAmount,
+                availableSpace
+            );
+
+        int ammoActuallyAdded =
+            ammoToAdd;
+
+        int bulletsNeeded =
+            sniperMagazineSize -
+            SniperLoaded;
+
+        if (bulletsNeeded > 0 &&
+            ammoToAdd > 0)
+        {
+            int bulletsToLoad =
+                Mathf.Min(
+                    bulletsNeeded,
+                    ammoToAdd
+                );
+
+            SniperLoaded +=
+                bulletsToLoad;
+
+            ammoToAdd -=
+                bulletsToLoad;
+        }
+
+        if (ammoToAdd > 0)
+        {
+            SniperReserve +=
+                ammoToAdd;
+        }
+
+        int finalTotalAmmo =
+            SniperLoaded +
+            SniperReserve;
+
+        Debug.Log(
+            $"SNIPER PICKUP | " +
+            $"+{ammoActuallyAdded} balas | " +
+            $"Cargadas: {SniperLoaded} | " +
+            $"Reserva: {SniperReserve} | " +
+            $"Total: {finalTotalAmmo}/{maxSniperAmmo}"
+        );
+    }
+
+    // ============================
+    // PICKUP ROCKET LAUNCHER
+    // ============================
+
+    public void AddRocketLauncher(
+        int ammoAmount)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        HasRocketLauncher = true;
+
+        int currentTotalAmmo =
+            RocketLauncherLoaded +
+            RocketLauncherReserve;
+
+        int availableSpace =
+            maxRocketLauncherAmmo -
+            currentTotalAmmo;
+
+        if (availableSpace <= 0)
+        {
+            Debug.Log(
+                $"ROCKET LAUNCHER AMMO FULL | " +
+                $"Total: {currentTotalAmmo}/{maxRocketLauncherAmmo}"
+            );
+
+            return;
+        }
+
+        int ammoToAdd =
+            Mathf.Min(
+                ammoAmount,
+                availableSpace
+            );
+
+        int ammoActuallyAdded =
+            ammoToAdd;
+
+        int rocketsNeeded =
+            rocketLauncherMagazineSize -
+            RocketLauncherLoaded;
+
+        if (rocketsNeeded > 0 &&
+            ammoToAdd > 0)
+        {
+            int rocketsToLoad =
+                Mathf.Min(
+                    rocketsNeeded,
+                    ammoToAdd
+                );
+
+            RocketLauncherLoaded +=
+                rocketsToLoad;
+
+            ammoToAdd -=
+                rocketsToLoad;
+        }
+
+        if (ammoToAdd > 0)
+        {
+            RocketLauncherReserve +=
+                ammoToAdd;
+        }
+
+        int finalTotalAmmo =
+            RocketLauncherLoaded +
+            RocketLauncherReserve;
+
+        Debug.Log(
+            $"ROCKET LAUNCHER PICKUP | " +
+            $"+{ammoActuallyAdded} rockets | " +
+            $"Cargado: {RocketLauncherLoaded} | " +
+            $"Reserva: {RocketLauncherReserve} | " +
+            $"Total: {finalTotalAmmo}/{maxRocketLauncherAmmo}"
+        );
+    }
+
+    // ============================
+    // PICKUP GRENADE
+    // ============================
+
+    public void AddGrenade(
+        int ammoAmount)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        HasGrenade = true;
+
+        int currentTotalAmmo =
+            GrenadeLoaded +
+            GrenadeReserve;
+
+        int availableSpace =
+            maxGrenadeAmmo -
+            currentTotalAmmo;
+
+        if (availableSpace <= 0)
+        {
+            Debug.Log(
+                $"GRENADE AMMO FULL | " +
+                $"Total: {currentTotalAmmo}/{maxGrenadeAmmo}"
+            );
+
+            return;
+        }
+
+        int ammoToAdd =
+            Mathf.Min(
+                ammoAmount,
+                availableSpace
+            );
+
+        int ammoActuallyAdded =
+            ammoToAdd;
+
+        // ============================
+        // PRIMERO CARGAR UNA GRANADA
+        // ============================
+
+        int grenadesNeeded =
+            grenadeMagazineSize -
+            GrenadeLoaded;
+
+        if (grenadesNeeded > 0 &&
+            ammoToAdd > 0)
+        {
+            int grenadesToLoad =
+                Mathf.Min(
+                    grenadesNeeded,
+                    ammoToAdd
+                );
+
+            GrenadeLoaded +=
+                grenadesToLoad;
+
+            ammoToAdd -=
+                grenadesToLoad;
+        }
+
+        // ============================
+        // RESTO A RESERVA
+        // ============================
+
+        if (ammoToAdd > 0)
+        {
+            GrenadeReserve +=
+                ammoToAdd;
+        }
+
+        int finalTotalAmmo =
+            GrenadeLoaded +
+            GrenadeReserve;
+
+        Debug.Log(
+            $"GRENADE PICKUP | " +
+            $"+{ammoActuallyAdded} granadas | " +
+            $"Cargada: {GrenadeLoaded} | " +
+            $"Reserva: {GrenadeReserve} | " +
+            $"Total: {finalTotalAmmo}/{maxGrenadeAmmo}"
         );
     }
 

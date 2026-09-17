@@ -1,121 +1,222 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Fusion;
 using Fusion.Sockets;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public class NetworkBootstrap : MonoBehaviour, INetworkRunnerCallbacks
+public class NetworkBootstrap :
+    MonoBehaviour,
+    INetworkRunnerCallbacks
 {
-    [Header("Player")]
+    // ============================
+    // CONFIG
+    // ============================
+
+    [Header("Network")]
     [SerializeField] private NetworkObject playerPrefab;
 
-    [Header("Spawn Points")]
+    [SerializeField]
+    private string sessionName =
+        "ArenaRoom";
+
+    // ============================
+    // SPAWNS
+    // ============================
+
+    [Header("Spawns")]
     [SerializeField] private Transform spawnPointP1;
     [SerializeField] private Transform spawnPointP2;
 
     [Header("Look Target")]
     [SerializeField] private Transform lookTarget;
 
+    // ============================
+    // RUNTIME
+    // ============================
+
     private NetworkRunner runner;
+
+    // ============================
+    // START
+    // ============================
 
     private async void Start()
     {
-        runner = GetComponent<NetworkRunner>();
+        await StartGame();
+    }
+
+    // ============================
+    // START GAME
+    // ============================
+
+    private async Task StartGame()
+    {
+        runner =
+            GetComponent<NetworkRunner>();
 
         if (runner == null)
         {
-            Debug.LogError("No se encontró NetworkRunner.");
+            Debug.LogError(
+                "NETWORK BOOTSTRAP: NetworkRunner not found."
+            );
+
             return;
         }
 
-        runner.AddCallbacks(this);
+        if (runner.IsRunning)
+            return;
 
-        var sceneRef = SceneRef.FromIndex(
-            SceneManager.GetActiveScene().buildIndex
+        runner.ProvideInput = true;
+
+        runner.AddCallbacks(
+            this
         );
 
-        NetworkSceneInfo sceneInfo = new NetworkSceneInfo();
+        NetworkSceneManagerDefault sceneManager =
+            GetComponent<NetworkSceneManagerDefault>();
 
-        sceneInfo.AddSceneRef(
-            sceneRef,
-            LoadSceneMode.Single
-        );
+        if (sceneManager == null)
+        {
+            sceneManager =
+                gameObject.AddComponent<
+                    NetworkSceneManagerDefault
+                >();
+        }
 
-        var result = await runner.StartGame(
+        SceneRef scene =
+            SceneRef.FromIndex(
+                SceneManager
+                    .GetActiveScene()
+                    .buildIndex
+            );
+
+        StartGameArgs args =
             new StartGameArgs
             {
-                GameMode = GameMode.Shared,
-                SessionName = "ArenaRoom",
-                Scene = sceneInfo,
+                GameMode =
+                    GameMode.Shared,
+
+                SessionName =
+                    sessionName,
+
+                Scene =
+                    scene,
+
                 SceneManager =
-                    GetComponent<NetworkSceneManagerDefault>()
-            }
-        );
+                    sceneManager
+            };
+
+        StartGameResult result =
+            await runner.StartGame(
+                args
+            );
 
         if (result.Ok)
         {
             Debug.Log(
-                "Conectado a ArenaRoom en Shared Mode."
+                $"FUSION STARTED | Session: {sessionName}"
             );
         }
         else
         {
             Debug.LogError(
-                $"Error al conectar: {result.ShutdownReason}"
+                $"FUSION START ERROR | {result.ShutdownReason}"
             );
         }
     }
+
+    // ============================
+    // PLAYER JOINED
+    // ============================
 
     public void OnPlayerJoined(
         NetworkRunner runner,
         PlayerRef player)
     {
-        Debug.Log($"Jugador conectado: {player}");
+        Debug.Log(
+            $"PLAYER JOINED | PlayerId: {player.PlayerId}"
+        );
 
-        // Cada cliente crea únicamente su propio player.
         if (player != runner.LocalPlayer)
             return;
 
-        Transform selectedSpawn;
+        SpawnLocalPlayer(
+            runner,
+            player
+        );
+    }
 
-        if (player.PlayerId == 1)
-        {
-            selectedSpawn = spawnPointP1;
-        }
-        else if (player.PlayerId == 2)
-        {
-            selectedSpawn = spawnPointP2;
-        }
-        else
+    // ============================
+    // SPAWN PLAYER
+    // ============================
+
+    private void SpawnLocalPlayer(
+        NetworkRunner runner,
+        PlayerRef player)
+    {
+        if (playerPrefab == null)
         {
             Debug.LogError(
-                $"PlayerId no reconocido: {player.PlayerId}"
+                "PLAYER PREFAB NOT ASSIGNED"
             );
 
             return;
         }
 
+        Transform selectedSpawn =
+            GetSpawnPoint(
+                player
+            );
+
         if (selectedSpawn == null)
         {
             Debug.LogError(
-                $"No hay SpawnPoint asignado para {player}"
+                $"NO SPAWN FOUND FOR PLAYER {player.PlayerId}"
             );
 
             return;
         }
 
         Quaternion spawnRotation =
-            CalculateLookRotation(
-                selectedSpawn.position
-            );
+            selectedSpawn.rotation;
+
+        if (lookTarget != null)
+        {
+            Vector3 direction =
+                lookTarget.position -
+                selectedSpawn.position;
+
+            direction.y = 0f;
+
+            if (direction.sqrMagnitude >
+                0.001f)
+            {
+                spawnRotation =
+                    Quaternion.LookRotation(
+                        direction.normalized,
+                        Vector3.up
+                    );
+            }
+        }
 
         NetworkObject playerObject =
             runner.Spawn(
                 playerPrefab,
                 selectedSpawn.position,
-                spawnRotation
+                spawnRotation,
+                player
             );
+
+        if (playerObject == null)
+        {
+            Debug.LogError(
+                "PLAYER SPAWN FAILED"
+            );
+
+            return;
+        }
 
         runner.SetPlayerObject(
             player,
@@ -123,53 +224,57 @@ public class NetworkBootstrap : MonoBehaviour, INetworkRunnerCallbacks
         );
 
         Debug.Log(
-            $"Player spawneado para {player} " +
-            $"en {selectedSpawn.name} " +
-            $"mirando hacia LOOK TARGET"
+            $"PLAYER SPAWNED | " +
+            $"ID: {player.PlayerId} | " +
+            $"SPAWN: {selectedSpawn.name}"
         );
     }
 
-    private Quaternion CalculateLookRotation(
-        Vector3 spawnPosition)
+    // ============================
+    // GET SPAWN
+    // ============================
+
+    private Transform GetSpawnPoint(
+        PlayerRef player)
     {
-        if (lookTarget == null)
+        if (player.PlayerId == 1)
         {
-            Debug.LogWarning(
-                "LOOK TARGET no está asignado. " +
-                "Se usará Quaternion.identity."
-            );
-
-            return Quaternion.identity;
+            return spawnPointP1;
         }
 
-        Vector3 direction =
-            lookTarget.position - spawnPosition;
-
-        // Solo queremos girar horizontalmente.
-        direction.y = 0f;
-
-        if (direction.sqrMagnitude < 0.001f)
+        if (player.PlayerId == 2)
         {
-            Debug.LogWarning(
-                "LOOK TARGET está demasiado cerca del SpawnPoint."
-            );
-
-            return Quaternion.identity;
+            return spawnPointP2;
         }
 
-        return Quaternion.LookRotation(
-            direction.normalized
-        );
+        return spawnPointP1;
     }
+
+    // ============================
+    // PLAYER LEFT
+    // ============================
 
     public void OnPlayerLeft(
         NetworkRunner runner,
         PlayerRef player)
     {
-        Debug.Log(
-            $"Jugador desconectado: {player}"
-        );
+        NetworkObject playerObject =
+            runner.GetPlayerObject(
+                player
+            );
+
+        if (playerObject != null &&
+            playerObject.HasStateAuthority)
+        {
+            runner.Despawn(
+                playerObject
+            );
+        }
     }
+
+    // ============================
+    // CALLBACKS
+    // ============================
 
     public void OnInput(
         NetworkRunner runner,
@@ -193,6 +298,9 @@ public class NetworkBootstrap : MonoBehaviour, INetworkRunnerCallbacks
     public void OnConnectedToServer(
         NetworkRunner runner)
     {
+        Debug.Log(
+            "CONNECTED TO SERVER"
+        );
     }
 
     public void OnDisconnectedFromServer(
@@ -206,18 +314,13 @@ public class NetworkBootstrap : MonoBehaviour, INetworkRunnerCallbacks
         NetworkRunnerCallbackArgs.ConnectRequest request,
         byte[] token)
     {
+        request.Accept();
     }
 
     public void OnConnectFailed(
         NetworkRunner runner,
         NetAddress remoteAddress,
         NetConnectFailedReason reason)
-    {
-    }
-
-    public void OnUserSimulationMessage(
-        NetworkRunner runner,
-        SimulationMessagePtr message)
     {
     }
 
@@ -239,6 +342,30 @@ public class NetworkBootstrap : MonoBehaviour, INetworkRunnerCallbacks
     {
     }
 
+    public void OnSceneLoadDone(
+        NetworkRunner runner)
+    {
+    }
+
+    public void OnSceneLoadStart(
+        NetworkRunner runner)
+    {
+    }
+
+    public void OnObjectEnterAOI(
+        NetworkRunner runner,
+        NetworkObject obj,
+        PlayerRef player)
+    {
+    }
+
+    public void OnObjectExitAOI(
+        NetworkRunner runner,
+        NetworkObject obj,
+        PlayerRef player)
+    {
+    }
+
     public void OnReliableDataReceived(
         NetworkRunner runner,
         PlayerRef player,
@@ -255,27 +382,9 @@ public class NetworkBootstrap : MonoBehaviour, INetworkRunnerCallbacks
     {
     }
 
-    public void OnSceneLoadDone(
-        NetworkRunner runner)
-    {
-    }
-
-    public void OnSceneLoadStart(
-        NetworkRunner runner)
-    {
-    }
-
-    public void OnObjectExitAOI(
+    public void OnUserSimulationMessage(
         NetworkRunner runner,
-        NetworkObject obj,
-        PlayerRef player)
-    {
-    }
-
-    public void OnObjectEnterAOI(
-        NetworkRunner runner,
-        NetworkObject obj,
-        PlayerRef player)
+        SimulationMessagePtr message)
     {
     }
 }

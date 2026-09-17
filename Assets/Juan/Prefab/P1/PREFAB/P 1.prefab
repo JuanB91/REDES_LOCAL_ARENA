@@ -328,6 +328,10 @@ GameObject:
   - component: {fileID: 5711390799615097701}
   - component: {fileID: 1037776481514168899}
   - component: {fileID: 4962490472558666622}
+  - component: {fileID: 5971550946134760427}
+  - component: {fileID: 7869794513108565663}
+  - component: {fileID: 5320485385885501279}
+  - component: {fileID: 971206310876355250}
   m_Layer: 0
   m_Name: P 1
   m_TagString: Untagged
@@ -350,6 +354,8 @@ Transform:
   m_Children:
   - {fileID: 8000273573487480483}
   - {fileID: 8721310994185486224}
+  - {fileID: 2431404950066641905}
+  - {fileID: 2377524424472230510}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4582913107432533813
@@ -377,6 +383,10 @@ MonoBehaviour:
   - {fileID: 5711390799615097701}
   - {fileID: 1037776481514168899}
   - {fileID: 4962490472558666622}
+  - {fileID: 5971550946134760427}
+  - {fileID: 7869794513108565663}
+  - {fileID: 5320485385885501279}
+  - {fileID: 971206310876355250}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7220554690742793090
 MonoBehaviour:
@@ -515,8 +525,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHealth: 100
-  respawnTime: 3
-  body: {fileID: 2273518425658698986}
+  respawnDelay: 3
+  bodyObject: {fileID: 2273518425658698986}
   _Health: 0
   _Kills: 0
   _IsDead:
@@ -533,10 +543,36 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b060e064cf42fec4987af90fe1632d14, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  maxShotgunAmmo: 16
+  shotgunMagazineSize: 2
   _HasShotgun:
     RawValue: 0
   _ShotgunLoaded: 0
   _ShotgunReserve: 0
+  maxAssaultRifleAmmo: 120
+  assaultRifleMagazineSize: 30
+  _HasAssaultRifle:
+    RawValue: 0
+  _AssaultRifleLoaded: 0
+  _AssaultRifleReserve: 0
+  maxSniperAmmo: 15
+  sniperMagazineSize: 5
+  _HasSniper:
+    RawValue: 0
+  _SniperLoaded: 0
+  _SniperReserve: 0
+  maxRocketLauncherAmmo: 3
+  rocketLauncherMagazineSize: 1
+  _HasRocketLauncher:
+    RawValue: 0
+  _RocketLauncherLoaded: 0
+  _RocketLauncherReserve: 0
+  maxGrenadeAmmo: 5
+  grenadeMagazineSize: 1
+  _HasGrenade:
+    RawValue: 0
+  _GrenadeLoaded: 0
+  _GrenadeReserve: 0
   _CurrentWeapon: 0
 --- !u!114 &4962490472558666622
 MonoBehaviour:
@@ -557,11 +593,168 @@ MonoBehaviour:
   maxLoadedShells: 2
   reloadTime: 3
   spread: 0.08
-  tracerColor: {r: 1, g: 0, b: 0, a: 1}
+  fullDamageDistance: 5
+  minimumDamageDistance: 12
+  minimumDamageMultiplier: 0.3
+  tracerMaterial: {fileID: 0}
+  tracerColor: {r: 0.48235294, g: 0.8862745, b: 0.32941177, a: 1}
   tracerDuration: 0.5
   tracerWidth: 0.035
   tracerForwardOffset: 0.5
   tracerDownOffset: 0.15
+--- !u!114 &5971550946134760427
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18bad3f9d4ec4104199c5cf6e9f95ccc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerCamera: {fileID: 7063423089720329057}
+  range: 100
+  damage: 11
+  shotsPerSecond: 8
+  reloadTime: 2.2
+  spread: 0.02
+  tracerColor: {r: 0, g: 1, b: 1, a: 1}
+  tracerDuration: 0.15
+  tracerWidth: 0.025
+  tracerForwardOffset: 0.5
+  tracerDownOffset: 0.15
+--- !u!114 &7869794513108565663
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e6ba72faf0792f46b4edc1f98671897, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerCamera: {fileID: 7063423089720329057}
+  range: 200
+  damage: 75
+  timeBetweenShots: 1
+  reloadTime: 2.8
+  spread: 0.002
+  tracerMaterial: {fileID: 0}
+  tracerColor: {r: 1, g: 0.03529412, b: 0.92941177, a: 1}
+  tracerDuration: 0.35
+  tracerWidth: 0.02
+  tracerForwardOffset: 0.5
+  tracerDownOffset: 0.15
+--- !u!114 &5320485385885501279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75a72fd0894c402468fab5338ea36cc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerCamera: {fileID: 7063423089720329057}
+  weaponInventory: {fileID: 1037776481514168899}
+  rocketPrefab:
+    RawGuidValue: 1b73b75e0aa885247bd46bf1bf767d2f
+  rocketSpawnPoint: {fileID: 2431404950066641905}
+  timeBetweenShots: 1.5
+  spawnForwardOffset: 0.5
+  reloadTime: 1.5
+  showDebug: 1
+--- !u!114 &971206310876355250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23f0d6462fd9b49468169b44f33dd5e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerCamera: {fileID: 7063423089720329057}
+  weaponInventory: {fileID: 1037776481514168899}
+  grenadePrefab:
+    RawGuidValue: f0c4756eb153717479d7d75899fe3dcb
+  grenadeSpawnPoint: {fileID: 2377524424472230510}
+  throwForce: 25
+  upwardForce: 7
+  timeBetweenThrows: 0.8
+  spawnForwardOffset: 1
+  reloadTime: 1
+  showDebug: 1
+--- !u!1 &7177859990253807386
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2377524424472230510}
+  m_Layer: 0
+  m_Name: 'GrenadeSpawn '
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2377524424472230510
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7177859990253807386}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.5, y: 0.25, z: 0.5}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 410304482083623893}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7590684198714670283
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2431404950066641905}
+  m_Layer: 0
+  m_Name: RocketSpawn
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2431404950066641905
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7590684198714670283}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.615, y: 0.25, z: 1.381}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 410304482083623893}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8293040580107073676
 GameObject:
   m_ObjectHideFlags: 0
