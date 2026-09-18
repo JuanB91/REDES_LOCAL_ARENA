@@ -35,11 +35,24 @@ public class PShooting : NetworkBehaviour
 
     private PWeaponInventory weaponInventory;
 
-    // Datos públicos para el HUD
+    // ============================
+    // DATOS PUBLICOS PARA HUD
+    // ============================
+
     public string WeaponName => weaponName;
-    public int CurrentAmmo => currentAmmo;
-    public int MagazineSize => magazineSize;
-    public bool IsReloading => isReloading;
+
+    public int CurrentAmmo =>
+        currentAmmo;
+
+    public int MagazineSize =>
+        magazineSize;
+
+    public bool IsReloading =>
+        isReloading;
+
+    // ============================
+    // AWAKE
+    // ============================
 
     private void Awake()
     {
@@ -47,14 +60,25 @@ public class PShooting : NetworkBehaviour
             GetComponent<PWeaponInventory>();
     }
 
+    // ============================
+    // SPAWNED
+    // ============================
+
     public override void Spawned()
     {
         if (Object.HasStateAuthority)
         {
-            currentAmmo = magazineSize;
-            isReloading = false;
+            currentAmmo =
+                magazineSize;
+
+            isReloading =
+                false;
         }
     }
+
+    // ============================
+    // UPDATE
+    // ============================
 
     private void Update()
     {
@@ -73,10 +97,9 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
-        // -------------------------
-        // SOLO FUNCIONA SI
-        // LA PISTOLA ESTÁ EQUIPADA
-        // -------------------------
+        // ============================
+        // SOLO SI PISTOLA EQUIPADA
+        // ============================
 
         if (weaponInventory != null &&
             !weaponInventory.IsPistolEquipped())
@@ -84,23 +107,21 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
-        // -------------------------
+        // ============================
         // RECARGA MANUAL
-        // -------------------------
+        // ============================
 
         if (Input.GetKeyDown(KeyCode.R))
         {
             TryReload();
         }
 
-        // Mientras recargamos
-        // no podemos disparar.
         if (isReloading)
             return;
 
-        // -------------------------
+        // ============================
         // DISPARO
-        // -------------------------
+        // ============================
 
         if (Input.GetMouseButtonDown(0))
         {
@@ -108,11 +129,16 @@ public class PShooting : NetworkBehaviour
         }
     }
 
+    // ============================
+    // TRY SHOOT
+    // ============================
+
     private void TryShoot()
     {
         if (currentAmmo <= 0)
         {
             TryReload();
+
             return;
         }
 
@@ -124,21 +150,22 @@ public class PShooting : NetworkBehaviour
             $"DISPARO | Balas: {currentAmmo}/{magazineSize}"
         );
 
-        // Recarga automática
-        // al gastar la última bala.
+        // Recarga automática al vaciar
         if (currentAmmo <= 0)
         {
             TryReload();
         }
     }
 
+    // ============================
+    // TRY RELOAD
+    // ============================
+
     private void TryReload()
     {
-        // Ya estamos recargando.
         if (isReloading)
             return;
 
-        // Cargador lleno.
         if (currentAmmo >= magazineSize)
             return;
 
@@ -146,6 +173,10 @@ public class PShooting : NetworkBehaviour
             ReloadRoutine()
         );
     }
+
+    // ============================
+    // SHOOT
+    // ============================
 
     private void Shoot()
     {
@@ -158,16 +189,16 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
-        // -------------------------
-        // DIRECCIÓN BASE
-        // -------------------------
+        // ============================
+        // DIRECCION BASE
+        // ============================
 
         Vector3 shotDirection =
             playerCamera.transform.forward;
 
-        // -------------------------
-        // DISPERSIÓN
-        // -------------------------
+        // ============================
+        // DISPERSION
+        // ============================
 
         float randomHorizontal =
             Random.Range(
@@ -191,14 +222,15 @@ public class PShooting : NetworkBehaviour
 
         shotDirection.Normalize();
 
-        // -------------------------
+        // ============================
         // RAYCAST
-        // -------------------------
+        // ============================
 
-        Ray ray = new Ray(
-            playerCamera.transform.position,
-            shotDirection
-        );
+        Ray ray =
+            new Ray(
+                playerCamera.transform.position,
+                shotDirection
+            );
 
         Vector3 tracerEndPoint;
 
@@ -215,7 +247,8 @@ public class PShooting : NetworkBehaviour
             );
 
             PHealth health =
-                hit.collider.GetComponentInParent<PHealth>();
+                hit.collider
+                    .GetComponentInParent<PHealth>();
 
             if (health != null)
             {
@@ -237,9 +270,9 @@ public class PShooting : NetworkBehaviour
             );
         }
 
-        // -------------------------
-        // ORIGEN VISUAL DEL TRACER
-        // -------------------------
+        // ============================
+        // ORIGEN DEL TRACER
+        // ============================
 
         Vector3 tracerStart =
             playerCamera.transform.position +
@@ -248,9 +281,9 @@ public class PShooting : NetworkBehaviour
             playerCamera.transform.up *
             tracerDownOffset;
 
-        // -------------------------
+        // ============================
         // TRACER
-        // -------------------------
+        // ============================
 
         StartCoroutine(
             ShowTracer(
@@ -259,6 +292,10 @@ public class PShooting : NetworkBehaviour
             )
         );
     }
+
+    // ============================
+    // SHOW TRACER
+    // ============================
 
     private IEnumerator ShowTracer(
         Vector3 start,
@@ -270,9 +307,11 @@ public class PShooting : NetworkBehaviour
             );
 
         LineRenderer lineRenderer =
-            tracerObject.AddComponent<LineRenderer>();
+            tracerObject
+                .AddComponent<LineRenderer>();
 
-        lineRenderer.positionCount = 2;
+        lineRenderer.positionCount =
+            2;
 
         lineRenderer.SetPosition(
             0,
@@ -322,12 +361,46 @@ public class PShooting : NetworkBehaviour
         );
     }
 
+    // ============================
+    // RESET PISTOL
+    // ============================
+
+    public void ResetPistolAmmo()
+    {
+        if (Object == null ||
+            !Object.HasStateAuthority)
+        {
+            return;
+        }
+
+        // Cancela una recarga que haya quedado
+        // corriendo al terminar la partida.
+        StopAllCoroutines();
+
+        currentAmmo =
+            magazineSize;
+
+        isReloading =
+            false;
+
+        Debug.Log(
+            $"PLAYER {Object.InputAuthority.PlayerId} " +
+            $"PISTOL RESET | " +
+            $"Balas: {currentAmmo}/{magazineSize}"
+        );
+    }
+
+    // ============================
+    // RELOAD ROUTINE
+    // ============================
+
     private IEnumerator ReloadRoutine()
     {
         if (isReloading)
             yield break;
 
-        isReloading = true;
+        isReloading =
+            true;
 
         Debug.Log(
             $"RECARGANDO... | " +

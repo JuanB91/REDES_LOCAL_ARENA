@@ -132,13 +132,6 @@ public class GrenadeProjectile : NetworkBehaviour
             rb.useGravity = false;
         }
 
-        if (showDebug &&
-            Object.HasStateAuthority)
-        {
-            Debug.Log(
-                "GRENADE PROJECTILE SPAWNED"
-            );
-        }
     }
 
     // ============================

@@ -74,13 +74,6 @@ public class PGrenade : NetworkBehaviour
                 GetComponentInChildren<Camera>();
         }
 
-        if (showDebug &&
-            Object.HasStateAuthority)
-        {
-            Debug.Log(
-                "GRENADE WEAPON INICIALIZADA"
-            );
-        }
     }
 
     // ============================
@@ -150,14 +143,7 @@ public class PGrenade : NetworkBehaviour
 
     private void OnGrenadeEquipped()
     {
-        if (showDebug)
-        {
-            Debug.Log(
-                $"GRENADE EQUIPADA | " +
-                $"Loaded: {weaponInventory.GrenadeLoaded} | " +
-                $"Reserve: {weaponInventory.GrenadeReserve}"
-            );
-        }
+      
 
         if (weaponInventory.GrenadeLoaded <= 0 &&
             weaponInventory.GrenadeReserve > 0)
@@ -389,14 +375,7 @@ public class PGrenade : NetworkBehaviour
 
         if (weaponInventory.GrenadeReserve <= 0)
         {
-            if (showDebug)
-            {
-                Debug.Log(
-                    "GRENADE: sin granadas en reserva."
-                );
-            }
-
-            return;
+            
         }
 
         StartCoroutine(

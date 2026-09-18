@@ -1,3 +1,4 @@
+using System.Reflection;
 using Fusion;
 using TMPro;
 using UnityEngine;
@@ -5,408 +6,288 @@ using UnityEngine.UI;
 
 public class GameHUD : MonoBehaviour
 {
-    [Header("Game UI")]
-    [SerializeField] private TMP_Text scoreText;
-    [SerializeField] private TMP_Text waitingText;
-    [SerializeField] private TMP_Text victoryText;
-    [SerializeField] private TMP_Text defeatText;
-    [SerializeField] private Button restartButton;
+    // ============================
+    // SCORE
+    // ============================
 
-    [Header("Health UI")]
-    [SerializeField] private Image healthFill;
-    [SerializeField] private TMP_Text healthText;
+    [Header("Score")]
+    [SerializeField]
+    private TMP_Text scoreText;
 
-    [Header("Weapon UI")]
-    [SerializeField] private TMP_Text weaponText;
-    [SerializeField] private TMP_Text ammoText;
-    [SerializeField] private TMP_Text reloadText;
+    // ============================
+    // HEALTH
+    // ============================
 
-    private NetworkRunner runner;
+    [Header("Health")]
+    [SerializeField]
+    private Image healthBar;
+
+    [SerializeField]
+    private TMP_Text healthText;
+
+    // ============================
+    // WEAPON HUD
+    // ============================
+
+    [Header("Weapon")]
+    [SerializeField]
+    private TMP_Text weaponText;
+
+    [SerializeField]
+    private TMP_Text ammoText;
+
+    [SerializeField]
+    private TMP_Text weaponStatusText;
+
+    // ============================
+    // MATCH UI
+    // ============================
+
+    [Header("Match")]
+    [SerializeField]
+    private TMP_Text waitingText;
+
+    [SerializeField]
+    private TMP_Text victoryText;
+
+    [SerializeField]
+    private TMP_Text defeatText;
+
+    [SerializeField]
+    private Button restartButton;
+
+    // ============================
+    // REFERENCES
+    // ============================
+
+    [Header("References")]
+    [SerializeField]
     private NetworkGameManager gameManager;
 
-    private bool playerLogged = false;
-    private bool resultShown = false;
-    private bool matchWasStarted = false;
+    // ============================
+    // LOCAL PLAYER
+    // ============================
+
+    private NetworkObject localPlayerObject;
+
+    private PHealth localHealth;
+    private PTeam localTeam;
+    private PWeaponInventory weaponInventory;
+
+    // ============================
+    // WEAPON COMPONENTS
+    // ============================
+
+    private MonoBehaviour pistolScript;
+    private MonoBehaviour shotgunScript;
+    private MonoBehaviour assaultRifleScript;
+    private MonoBehaviour sniperScript;
+    private MonoBehaviour rocketLauncherScript;
+    private MonoBehaviour grenadeScript;
+
+    // ============================
+    // RUNTIME
+    // ============================
+
+    private bool resultShown;
+    private bool localPlayerFound;
+
+    // ============================
+    // START
+    // ============================
 
     private void Start()
     {
-        if (victoryText != null)
-            victoryText.gameObject.SetActive(false);
-
-        if (defeatText != null)
-            defeatText.gameObject.SetActive(false);
-
-        if (restartButton != null)
-            restartButton.gameObject.SetActive(false);
-
-        if (waitingText != null)
-            waitingText.gameObject.SetActive(true);
-
-        if (reloadText != null)
-            reloadText.gameObject.SetActive(false);
-    }
-
-    private void Update()
-    {
-        // ============================
-        // NETWORK RUNNER
-        // ============================
-
-        if (runner == null)
-        {
-            runner =
-                FindFirstObjectByType<NetworkRunner>();
-
-            if (runner == null)
-                return;
-        }
-
-        // ============================
-        // DEBUG PLAYER LOCAL
-        // ============================
-
-        if (!playerLogged &&
-            runner.IsRunning &&
-            runner.LocalPlayer != PlayerRef.None)
-        {
-            Debug.Log(
-                $"SOY PLAYER {runner.LocalPlayer.PlayerId} | " +
-                $"FusionRef: {runner.LocalPlayer}"
-            );
-
-            playerLogged = true;
-        }
-
-        // ============================
-        // GAME MANAGER
-        // ============================
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<NetworkGameManager>();
-
-            if (gameManager == null)
-                return;
-        }
-
-        if (!gameManager.IsReady)
-            return;
-
-        // ============================
-        // ACTUALIZAR HUD
-        // ============================
-
-        UpdateScore();
-        UpdateWaitingState();
-        UpdateHealth();
-        UpdateWeapon();
-
-        // ============================
-        // GAME OVER
-        // ============================
-
-        if (gameManager.GameOver)
-        {
-            ShowResult();
-        }
-        else if (resultShown)
-        {
-            HideResult();
-        }
-    }
-
-    // ============================
-    // WAITING
-    // ============================
-
-    private void UpdateWaitingState()
-    {
-        bool waiting =
-            !gameManager.MatchStarted &&
-            !gameManager.GameOver;
+        HideEndGameUI();
 
         if (waitingText != null)
         {
             waitingText.gameObject.SetActive(
-                waiting
+                true
             );
         }
 
-        if (waiting)
+        if (weaponStatusText != null)
         {
-            Cursor.lockState =
-                CursorLockMode.None;
-
-            Cursor.visible = true;
-
-            matchWasStarted = false;
+            weaponStatusText.text = "";
         }
-        else if (gameManager.MatchStarted &&
-                 !gameManager.GameOver &&
-                 !matchWasStarted)
+
+        Cursor.lockState =
+            CursorLockMode.Locked;
+
+        Cursor.visible =
+            false;
+    }
+
+    // ============================
+    // UPDATE
+    // ============================
+
+    private void Update()
+    {
+        FindGameManager();
+
+        if (gameManager == null)
+            return;
+
+        if (!gameManager.IsReady)
+            return;
+
+        FindLocalPlayer();
+
+        UpdateScore();
+        UpdateWaitingUI();
+
+        if (!localPlayerFound)
+            return;
+
+        UpdateHealth();
+        UpdateWeaponHUD();
+        UpdateMatchResult();
+    }
+
+    // ============================
+    // FIND GAME MANAGER
+    // ============================
+
+    private void FindGameManager()
+    {
+        if (gameManager != null)
+            return;
+
+        gameManager =
+            FindFirstObjectByType<
+                NetworkGameManager
+            >();
+    }
+
+    // ============================
+    // FIND LOCAL PLAYER
+    // ============================
+
+    private void FindLocalPlayer()
+    {
+        if (localPlayerFound &&
+            localPlayerObject != null)
         {
-            matchWasStarted = true;
+            return;
+        }
 
-            Cursor.lockState =
-                CursorLockMode.Locked;
+        PHealth[] players =
+            FindObjectsByType<PHealth>(
+                FindObjectsSortMode.None
+            );
 
-            Cursor.visible = false;
+        foreach (PHealth health in players)
+        {
+            if (health == null)
+                continue;
 
-            Debug.Log("FIGHT!");
+            NetworkObject networkObject =
+                health.GetComponent<
+                    NetworkObject
+                >();
+
+            if (networkObject == null)
+                continue;
+
+            if (!networkObject.IsValid)
+                continue;
+
+            if (!networkObject.HasInputAuthority)
+                continue;
+
+            localPlayerObject =
+                networkObject;
+
+            localHealth =
+                health;
+
+            localTeam =
+                networkObject.GetComponent<
+                    PTeam
+                >();
+
+            weaponInventory =
+                networkObject.GetComponent<
+                    PWeaponInventory
+                >();
+
+            CacheWeaponScripts(
+                networkObject.gameObject
+            );
+
+            localPlayerFound =
+                true;
+
+            return;
         }
     }
 
     // ============================
-    // VIDA
+    // CACHE WEAPON SCRIPTS
     // ============================
 
-    private void UpdateHealth()
+    private void CacheWeaponScripts(
+        GameObject player)
     {
-        if (runner == null ||
-            runner.LocalPlayer == PlayerRef.None)
+        MonoBehaviour[] scripts =
+            player.GetComponents<
+                MonoBehaviour
+            >();
+
+        foreach (MonoBehaviour script in scripts)
         {
-            return;
-        }
+            if (script == null)
+                continue;
 
-        NetworkObject playerObject =
-            runner.GetPlayerObject(
-                runner.LocalPlayer
-            );
+            string typeName =
+                script.GetType().Name;
 
-        if (playerObject == null)
-            return;
-
-        PHealth health =
-            playerObject.GetComponent<PHealth>();
-
-        if (health == null)
-            return;
-
-        float healthPercent =
-            (float)health.Health /
-            health.MaxHealth;
-
-        healthPercent =
-            Mathf.Clamp01(
-                healthPercent
-            );
-
-        if (healthFill != null)
-        {
-            healthFill.fillAmount =
-                healthPercent;
-        }
-
-        if (healthText != null)
-        {
-            healthText.text =
-                $"{health.Health} / {health.MaxHealth}";
-        }
-    }
-
-    // ============================
-    // ARMAS
-    // ============================
-
-    private void UpdateWeapon()
-    {
-        if (runner == null ||
-            runner.LocalPlayer == PlayerRef.None)
-        {
-            return;
-        }
-
-        NetworkObject playerObject =
-            runner.GetPlayerObject(
-                runner.LocalPlayer
-            );
-
-        if (playerObject == null)
-            return;
-
-        PWeaponInventory inventory =
-            playerObject.GetComponent<PWeaponInventory>();
-
-        PShooting pistol =
-            playerObject.GetComponent<PShooting>();
-
-        PShotgun shotgun =
-            playerObject.GetComponent<PShotgun>();
-
-        PAssaultRifle assaultRifle =
-            playerObject.GetComponent<PAssaultRifle>();
-
-        PSniper sniper =
-            playerObject.GetComponent<PSniper>();
-
-        PRocketLauncher rocketLauncher =
-            playerObject.GetComponent<PRocketLauncher>();
-
-        PGrenade grenade =
-            playerObject.GetComponent<PGrenade>();
-
-        if (inventory == null)
-            return;
-
-        // ============================
-        // NOMBRE DEL ARMA
-        // ============================
-
-        if (weaponText != null)
-        {
-            weaponText.gameObject.SetActive(true);
-
-            weaponText.text =
-                inventory.CurrentWeaponName;
-        }
-
-        // ============================
-        // MUNICIÓN
-        // ============================
-
-        if (ammoText != null)
-        {
-            ammoText.gameObject.SetActive(true);
-
-            switch (inventory.CurrentWeapon)
+            switch (typeName)
             {
-                // -------------------------
-                // PISTOL
-                // -------------------------
+                case "PShooting":
 
-                case PWeaponInventory.WeaponType.Pistol:
-
-                    if (pistol != null)
-                    {
-                        ammoText.text =
-                            $"{pistol.CurrentAmmo} / " +
-                            $"{pistol.MagazineSize}";
-                    }
+                    pistolScript =
+                        script;
 
                     break;
 
-                // -------------------------
-                // SHOTGUN
-                // -------------------------
+                case "PShotgun":
 
-                case PWeaponInventory.WeaponType.Shotgun:
-
-                    ammoText.text =
-                        $"{inventory.ShotgunLoaded} / " +
-                        $"{inventory.ShotgunReserve}";
+                    shotgunScript =
+                        script;
 
                     break;
 
-                // -------------------------
-                // ASSAULT RIFLE
-                // -------------------------
+                case "PAssaultRifle":
 
-                case PWeaponInventory.WeaponType.AssaultRifle:
-
-                    ammoText.text =
-                        $"{inventory.AssaultRifleLoaded} / " +
-                        $"{inventory.AssaultRifleReserve}";
+                    assaultRifleScript =
+                        script;
 
                     break;
 
-                // -------------------------
-                // SNIPER
-                // -------------------------
+                case "PSniper":
 
-                case PWeaponInventory.WeaponType.Sniper:
-
-                    ammoText.text =
-                        $"{inventory.SniperLoaded} / " +
-                        $"{inventory.SniperReserve}";
+                    sniperScript =
+                        script;
 
                     break;
 
-                // -------------------------
-                // ROCKET LAUNCHER
-                // -------------------------
+                case "PRocketLauncher":
 
-                case PWeaponInventory.WeaponType.RocketLauncher:
-
-                    ammoText.text =
-                        $"{inventory.RocketLauncherLoaded} / " +
-                        $"{inventory.RocketLauncherReserve}";
+                    rocketLauncherScript =
+                        script;
 
                     break;
 
-                // -------------------------
-                // GRENADE
-                // -------------------------
+                case "PGrenade":
 
-                case PWeaponInventory.WeaponType.Grenade:
-
-                    ammoText.text =
-                        $"{inventory.GrenadeLoaded} / " +
-                        $"{inventory.GrenadeReserve}";
+                    grenadeScript =
+                        script;
 
                     break;
             }
-        }
-
-        // ============================
-        // RELOADING
-        // ============================
-
-        if (reloadText != null)
-        {
-            bool showReloading = false;
-
-            // PISTOL
-            if (inventory.IsPistolEquipped() &&
-                pistol != null)
-            {
-                showReloading =
-                    pistol.IsReloading;
-            }
-
-            // SHOTGUN
-            else if (inventory.IsShotgunEquipped() &&
-                     shotgun != null)
-            {
-                showReloading =
-                    shotgun.IsReloading;
-            }
-
-            // ASSAULT RIFLE
-            else if (inventory.IsAssaultRifleEquipped() &&
-                     assaultRifle != null)
-            {
-                showReloading =
-                    assaultRifle.IsReloading;
-            }
-
-            // SNIPER
-            else if (inventory.IsSniperEquipped() &&
-                     sniper != null)
-            {
-                showReloading =
-                    sniper.IsReloading;
-            }
-
-            // ROCKET LAUNCHER
-            else if (inventory.IsRocketLauncherEquipped() &&
-                     rocketLauncher != null)
-            {
-                showReloading =
-                    rocketLauncher.IsReloading;
-            }
-
-            // GRENADE
-            else if (inventory.IsGrenadeEquipped() &&
-                     grenade != null)
-            {
-                showReloading =
-                    grenade.IsReloading;
-            }
-
-            reloadText.gameObject.SetActive(
-                showReloading
-            );
         }
     }
 
@@ -416,71 +297,342 @@ public class GameHUD : MonoBehaviour
 
     private void UpdateScore()
     {
-        int player1Kills = 0;
-        int player2Kills = 0;
+        if (scoreText == null)
+            return;
 
-        foreach (
-            PlayerRef player
-            in runner.ActivePlayers)
+        scoreText.text =
+            $"RED: {gameManager.RedScore}   |   " +
+            $"BLUE: {gameManager.BlueScore}";
+    }
+
+    // ============================
+    // WAITING
+    // ============================
+
+    private void UpdateWaitingUI()
+    {
+        if (waitingText == null)
+            return;
+
+        bool waiting =
+            !gameManager.MatchStarted &&
+            !gameManager.GameOver;
+
+        waitingText.gameObject.SetActive(
+            waiting
+        );
+
+        if (waiting)
         {
-            NetworkObject playerObject =
-                runner.GetPlayerObject(player);
-
-            if (playerObject == null)
-                continue;
-
-            PHealth health =
-                playerObject.GetComponent<PHealth>();
-
-            if (health == null)
-                continue;
-
-            if (player.PlayerId == 1)
-            {
-                player1Kills =
-                    health.Kills;
-            }
-            else if (player.PlayerId == 2)
-            {
-                player2Kills =
-                    health.Kills;
-            }
-        }
-
-        if (scoreText != null)
-        {
-            scoreText.text =
-                $"P1: {player1Kills}   |   " +
-                $"P2: {player2Kills}";
+            waitingText.text =
+                "WAITING FOR PLAYERS";
         }
     }
 
     // ============================
-    // RESULTADO
+    // HEALTH
     // ============================
 
-    private void ShowResult()
+    private void UpdateHealth()
     {
+        if (localHealth == null)
+            return;
+
+        if (healthBar != null)
+        {
+            healthBar.fillAmount =
+                (float)localHealth.Health /
+                localHealth.MaxHealth;
+        }
+
+        if (healthText != null)
+        {
+            healthText.text =
+                $"{localHealth.Health} / " +
+                $"{localHealth.MaxHealth}";
+        }
+    }
+
+    // ============================
+    // WEAPON HUD
+    // ============================
+
+    private void UpdateWeaponHUD()
+    {
+        if (weaponInventory == null)
+            return;
+
+        if (weaponText != null)
+        {
+            weaponText.text =
+                weaponInventory
+                    .CurrentWeaponName;
+        }
+
+        UpdateAmmoText();
+        UpdateReloadText();
+    }
+
+    // ============================
+    // AMMO
+    // ============================
+
+    private void UpdateAmmoText()
+    {
+        if (ammoText == null)
+            return;
+
+        switch (
+            weaponInventory.CurrentWeapon
+        )
+        {
+            case PWeaponInventory
+                .WeaponType
+                .Pistol:
+
+                int pistolAmmo =
+                    GetIntValue(
+                        pistolScript,
+                        "CurrentAmmo",
+                        0
+                    );
+
+                int pistolMagazine =
+                    GetIntValue(
+                        pistolScript,
+                        "MagSize",
+                        6
+                    );
+
+                ammoText.text =
+                    $"{pistolAmmo} / " +
+                    $"{pistolMagazine}";
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .Shotgun:
+
+                ammoText.text =
+                    $"{weaponInventory.ShotgunLoaded} / " +
+                    $"{weaponInventory.ShotgunReserve}";
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .AssaultRifle:
+
+                ammoText.text =
+                    $"{weaponInventory.AssaultRifleLoaded} / " +
+                    $"{weaponInventory.AssaultRifleReserve}";
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .Sniper:
+
+                ammoText.text =
+                    $"{weaponInventory.SniperLoaded} / " +
+                    $"{weaponInventory.SniperReserve}";
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .RocketLauncher:
+
+                ammoText.text =
+                    $"{weaponInventory.RocketLauncherLoaded} / " +
+                    $"{weaponInventory.RocketLauncherReserve}";
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .Grenade:
+
+                ammoText.text =
+                    $"{weaponInventory.GrenadeLoaded} / " +
+                    $"{weaponInventory.GrenadeReserve}";
+
+                break;
+        }
+    }
+
+    // ============================
+    // RELOAD STATUS
+    // ============================
+
+    private void UpdateReloadText()
+    {
+        if (weaponStatusText == null)
+            return;
+
+        bool reloading = false;
+
+        switch (
+            weaponInventory.CurrentWeapon
+        )
+        {
+            case PWeaponInventory
+                .WeaponType
+                .Pistol:
+
+                reloading =
+                    GetBoolValue(
+                        pistolScript,
+                        "IsReloading"
+                    );
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .Shotgun:
+
+                reloading =
+                    GetBoolValue(
+                        shotgunScript,
+                        "IsReloading"
+                    );
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .AssaultRifle:
+
+                reloading =
+                    GetBoolValue(
+                        assaultRifleScript,
+                        "IsReloading"
+                    );
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .Sniper:
+
+                reloading =
+                    GetBoolValue(
+                        sniperScript,
+                        "IsReloading"
+                    );
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .RocketLauncher:
+
+                reloading =
+                    GetBoolValue(
+                        rocketLauncherScript,
+                        "IsReloading"
+                    );
+
+                break;
+
+            case PWeaponInventory
+                .WeaponType
+                .Grenade:
+
+                reloading =
+                    GetBoolValue(
+                        grenadeScript,
+                        "IsReloading"
+                    );
+
+                break;
+        }
+
+        weaponStatusText.text =
+            reloading
+                ? "RELOADING..."
+                : "";
+    }
+
+    // ============================
+    // MATCH RESULT
+    // ============================
+
+    private void UpdateMatchResult()
+    {
+        if (!gameManager.GameOver)
+        {
+            if (resultShown)
+            {
+                resultShown =
+                    false;
+
+                HideEndGameUI();
+
+                Cursor.lockState =
+                    CursorLockMode.Locked;
+
+                Cursor.visible =
+                    false;
+            }
+
+            return;
+        }
+
         if (resultShown)
             return;
 
-        resultShown = true;
+        if (!gameManager.HasWinningTeam)
+            return;
 
-        bool localPlayerWon =
-            runner.LocalPlayer ==
-            gameManager.Winner;
+        if (localTeam == null)
+            return;
 
+        bool localTeamWon =
+            localTeam.CurrentTeam ==
+            gameManager.WinningTeam;
+
+        if (localTeamWon)
+        {
+            ShowVictory();
+        }
+        else
+        {
+            ShowDefeat();
+        }
+
+        resultShown =
+            true;
+
+        Cursor.lockState =
+            CursorLockMode.None;
+
+        Cursor.visible =
+            true;
+    }
+
+    // ============================
+    // VICTORY
+    // ============================
+
+    private void ShowVictory()
+    {
         if (victoryText != null)
         {
+            victoryText.text =
+                "VICTORY";
+
             victoryText.gameObject.SetActive(
-                localPlayerWon
+                true
             );
         }
 
         if (defeatText != null)
         {
             defeatText.gameObject.SetActive(
-                !localPlayerWon
+                false
             );
         }
 
@@ -490,55 +642,218 @@ public class GameHUD : MonoBehaviour
                 true
             );
         }
+    }
 
-        if (waitingText != null)
+    // ============================
+    // DEFEAT
+    // ============================
+
+    private void ShowDefeat()
+    {
+        if (victoryText != null)
         {
-            waitingText.gameObject.SetActive(
+            victoryText.gameObject.SetActive(
                 false
             );
         }
 
-        Cursor.lockState =
-            CursorLockMode.None;
-
-        Cursor.visible = true;
-
-        Debug.Log(
-            localPlayerWon
-                ? "FIN DE PARTIDA: VICTORY"
-                : "FIN DE PARTIDA: DEFEAT"
-        );
-    }
-
-    private void HideResult()
-    {
-        resultShown = false;
-
-        if (victoryText != null)
-            victoryText.gameObject.SetActive(false);
-
         if (defeatText != null)
-            defeatText.gameObject.SetActive(false);
+        {
+            defeatText.text =
+                "DEFEAT";
+
+            defeatText.gameObject.SetActive(
+                true
+            );
+        }
 
         if (restartButton != null)
-            restartButton.gameObject.SetActive(false);
+        {
+            restartButton.gameObject.SetActive(
+                true
+            );
+        }
+    }
 
-        matchWasStarted = false;
+    // ============================
+    // HIDE END GAME
+    // ============================
+
+    public void HideEndGameUI()
+    {
+        if (victoryText != null)
+        {
+            victoryText.gameObject.SetActive(
+                false
+            );
+        }
+
+        if (defeatText != null)
+        {
+            defeatText.gameObject.SetActive(
+                false
+            );
+        }
+
+        if (restartButton != null)
+        {
+            restartButton.gameObject.SetActive(
+                false
+            );
+        }
     }
 
     // ============================
     // RESTART
     // ============================
 
-    public void RestartGame()
+    public void RestartMatch()
     {
-        Debug.Log(
-            "BOTON RESTART PRESIONADO"
-        );
+        Debug.Log("HUD: RESTART BUTTON PRESSED");
 
         if (gameManager == null)
+        {
+            Debug.LogError(
+                "HUD: GAME MANAGER ES NULL"
+            );
+
             return;
+        }
+
+        if (!gameManager.IsReady)
+        {
+            Debug.LogError(
+                "HUD: GAME MANAGER TODAVIA NO ESTA READY"
+            );
+
+            return;
+        }
+
+        Debug.Log(
+            "HUD: ENVIANDO REQUEST RESTART"
+        );
 
         gameManager.RequestRestart();
+    }
+
+    // ============================
+    // REFLECTION HELPERS
+    // ============================
+
+    private int GetIntValue(
+        MonoBehaviour component,
+        string propertyName,
+        int defaultValue)
+    {
+        if (component == null)
+            return defaultValue;
+
+        PropertyInfo property =
+            component
+                .GetType()
+                .GetProperty(
+                    propertyName,
+                    BindingFlags.Public |
+                    BindingFlags.Instance
+                );
+
+        if (property != null &&
+            property.PropertyType ==
+            typeof(int))
+        {
+            object value =
+                property.GetValue(
+                    component
+                );
+
+            if (value != null)
+            {
+                return (int)value;
+            }
+        }
+
+        FieldInfo field =
+            component
+                .GetType()
+                .GetField(
+                    propertyName,
+                    BindingFlags.Public |
+                    BindingFlags.Instance
+                );
+
+        if (field != null &&
+            field.FieldType ==
+            typeof(int))
+        {
+            object value =
+                field.GetValue(
+                    component
+                );
+
+            if (value != null)
+            {
+                return (int)value;
+            }
+        }
+
+        return defaultValue;
+    }
+
+    private bool GetBoolValue(
+        MonoBehaviour component,
+        string propertyName)
+    {
+        if (component == null)
+            return false;
+
+        PropertyInfo property =
+            component
+                .GetType()
+                .GetProperty(
+                    propertyName,
+                    BindingFlags.Public |
+                    BindingFlags.Instance
+                );
+
+        if (property != null &&
+            property.PropertyType ==
+            typeof(bool))
+        {
+            object value =
+                property.GetValue(
+                    component
+                );
+
+            if (value != null)
+            {
+                return (bool)value;
+            }
+        }
+
+        FieldInfo field =
+            component
+                .GetType()
+                .GetField(
+                    propertyName,
+                    BindingFlags.Public |
+                    BindingFlags.Instance
+                );
+
+        if (field != null &&
+            field.FieldType ==
+            typeof(bool))
+        {
+            object value =
+                field.GetValue(
+                    component
+                );
+
+            if (value != null)
+            {
+                return (bool)value;
+            }
+        }
+
+        return false;
     }
 }

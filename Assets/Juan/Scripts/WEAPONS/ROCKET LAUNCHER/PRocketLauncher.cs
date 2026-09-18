@@ -69,13 +69,7 @@ public class PRocketLauncher : NetworkBehaviour
                 GetComponentInChildren<Camera>();
         }
 
-        if (showDebug &&
-            Object.HasStateAuthority)
-        {
-            Debug.Log(
-                "ROCKET LAUNCHER INICIALIZADA"
-            );
-        }
+       
     }
 
     // ============================
@@ -145,14 +139,6 @@ public class PRocketLauncher : NetworkBehaviour
 
     private void OnRocketLauncherEquipped()
     {
-        if (showDebug)
-        {
-            Debug.Log(
-                $"ROCKET EQUIPADA | " +
-                $"Loaded: {weaponInventory.RocketLauncherLoaded} | " +
-                $"Reserve: {weaponInventory.RocketLauncherReserve}"
-            );
-        }
 
         if (weaponInventory.RocketLauncherLoaded <= 0 &&
             weaponInventory.RocketLauncherReserve > 0)

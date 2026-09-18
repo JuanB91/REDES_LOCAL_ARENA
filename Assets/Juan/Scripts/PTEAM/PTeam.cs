@@ -9,13 +9,19 @@ public class PTeam : NetworkBehaviour
         Blue = 1
     }
 
-    [Header("Equipo")]
+    // ============================
+    // NETWORK DATA
+    // ============================
 
     [Networked]
     public Team CurrentTeam { get; set; }
 
     [Networked]
     public int TeamIndex { get; set; }
+
+    // ============================
+    // SPAWNED
+    // ============================
 
     public override void Spawned()
     {
@@ -26,7 +32,7 @@ public class PTeam : NetworkBehaviour
     }
 
     // ============================
-    // ASIGNAR EQUIPO
+    // ASSIGN TEAM
     // ============================
 
     private void AssignTeam()
@@ -34,9 +40,7 @@ public class PTeam : NetworkBehaviour
         int playerId =
             Object.InputAuthority.PlayerId;
 
-        // Player 1, 3, 5... RED
-        // Player 2, 4, 6... BLUE
-
+        // Odd PlayerIds go to RED.
         if (playerId % 2 != 0)
         {
             CurrentTeam =
@@ -45,6 +49,8 @@ public class PTeam : NetworkBehaviour
             TeamIndex =
                 (playerId - 1) / 2;
         }
+
+        // Even PlayerIds go to BLUE.
         else
         {
             CurrentTeam =
@@ -55,14 +61,15 @@ public class PTeam : NetworkBehaviour
         }
 
         Debug.Log(
-            $"PLAYER {playerId} | " +
-            $"TEAM: {CurrentTeam} | " +
-            $"TEAM INDEX: {TeamIndex}"
+            $"TEAM ASSIGNED | " +
+            $"Player: {playerId} | " +
+            $"Team: {CurrentTeam} | " +
+            $"TeamIndex: {TeamIndex}"
         );
     }
 
     // ============================
-    // CONSULTAS
+    // HELPERS
     // ============================
 
     public bool IsRed()

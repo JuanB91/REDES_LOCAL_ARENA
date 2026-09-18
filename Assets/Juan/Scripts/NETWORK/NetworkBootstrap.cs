@@ -15,22 +15,16 @@ public class NetworkBootstrap :
     // ============================
 
     [Header("Network")]
-    [SerializeField] private NetworkObject playerPrefab;
+    [SerializeField]
+    private NetworkObject playerPrefab;
 
     [SerializeField]
     private string sessionName =
         "ArenaRoom";
 
-    // ============================
-    // SPAWNS
-    // ============================
-
-    [Header("Spawns")]
-    [SerializeField] private Transform spawnPointP1;
-    [SerializeField] private Transform spawnPointP2;
-
-    [Header("Look Target")]
-    [SerializeField] private Transform lookTarget;
+    [SerializeField]
+    private int maxPlayers =
+        16;
 
     // ============================
     // RUNTIME
@@ -38,12 +32,18 @@ public class NetworkBootstrap :
 
     private NetworkRunner runner;
 
+    private bool localPlayerSpawned;
+
     // ============================
     // START
     // ============================
 
     private async void Start()
     {
+        DontDestroyOnLoad(
+            gameObject
+        );
+
         await StartGame();
     }
 
@@ -59,23 +59,29 @@ public class NetworkBootstrap :
         if (runner == null)
         {
             Debug.LogError(
-                "NETWORK BOOTSTRAP: NetworkRunner not found."
+                "NETWORK BOOTSTRAP: " +
+                "NetworkRunner not found."
             );
 
             return;
         }
 
         if (runner.IsRunning)
+        {
             return;
+        }
 
-        runner.ProvideInput = true;
+        runner.ProvideInput =
+            true;
 
         runner.AddCallbacks(
             this
         );
 
         NetworkSceneManagerDefault sceneManager =
-            GetComponent<NetworkSceneManagerDefault>();
+            GetComponent<
+                NetworkSceneManagerDefault
+            >();
 
         if (sceneManager == null)
         {
@@ -85,7 +91,7 @@ public class NetworkBootstrap :
                 >();
         }
 
-        SceneRef scene =
+        SceneRef currentScene =
             SceneRef.FromIndex(
                 SceneManager
                     .GetActiveScene()
@@ -101,8 +107,11 @@ public class NetworkBootstrap :
                 SessionName =
                     sessionName,
 
+                PlayerCount =
+                    maxPlayers,
+
                 Scene =
-                    scene,
+                    currentScene,
 
                 SceneManager =
                     sceneManager
@@ -116,13 +125,17 @@ public class NetworkBootstrap :
         if (result.Ok)
         {
             Debug.Log(
-                $"FUSION STARTED | Session: {sessionName}"
+                $"FUSION STARTED | " +
+                $"Session: {sessionName} | " +
+                $"Max Players: {maxPlayers} | " +
+                $"Scene: {SceneManager.GetActiveScene().name}"
             );
         }
         else
         {
             Debug.LogError(
-                $"FUSION START ERROR | {result.ShutdownReason}"
+                $"FUSION START ERROR | " +
+                $"{result.ShutdownReason}"
             );
         }
     }
@@ -136,51 +149,152 @@ public class NetworkBootstrap :
         PlayerRef player)
     {
         Debug.Log(
-            $"PLAYER JOINED | PlayerId: {player.PlayerId}"
+            $"PLAYER JOINED | " +
+            $"PlayerId: {player.PlayerId}"
         );
+
+        // En WAITING solamente conectamos.
+        // Todavía NO creamos el personaje.
+        if (SceneManager
+            .GetActiveScene()
+            .name != "ARENA")
+        {
+            return;
+        }
 
         if (player != runner.LocalPlayer)
+        {
             return;
+        }
 
-        SpawnLocalPlayer(
-            runner,
-            player
-        );
+        TrySpawnLocalPlayer();
     }
 
     // ============================
-    // SPAWN PLAYER
+    // SCENE LOAD DONE
     // ============================
 
-    private void SpawnLocalPlayer(
-        NetworkRunner runner,
-        PlayerRef player)
+    public void OnSceneLoadDone(
+        NetworkRunner runner)
     {
-        if (playerPrefab == null)
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        Debug.Log(
+            $"NETWORK SCENE LOADED | " +
+            $"{sceneName}"
+        );
+
+        if (sceneName == "ARENA")
+        {
+            TrySpawnLocalPlayer();
+        }
+    }
+
+    // ============================
+    // SPAWN LOCAL PLAYER
+    // ============================
+
+    private void TrySpawnLocalPlayer()
+    {
+        if (runner == null)
+            return;
+
+        if (!runner.IsRunning)
+            return;
+
+        if (localPlayerSpawned)
+            return;
+
+        PlayerRef player =
+            runner.LocalPlayer;
+
+        if (player == PlayerRef.None)
+            return;
+
+        TeamSpawnManager teamSpawnManager =
+            FindFirstObjectByType<
+                TeamSpawnManager
+            >();
+
+        if (teamSpawnManager == null)
         {
             Debug.LogError(
-                "PLAYER PREFAB NOT ASSIGNED"
+                "NETWORK BOOTSTRAP: " +
+                "TeamSpawnManager not found in ARENA."
             );
 
             return;
         }
 
-        Transform selectedSpawn =
-            GetSpawnPoint(
-                player
+        if (playerPrefab == null)
+        {
+            Debug.LogError(
+                "NETWORK BOOTSTRAP: " +
+                "Player Prefab not assigned."
             );
+
+            return;
+        }
+
+        // ============================
+        // TEAM
+        // ============================
+
+        PTeam.Team team;
+        int teamIndex;
+
+        if (player.PlayerId % 2 != 0)
+        {
+            team =
+                PTeam.Team.Red;
+
+            teamIndex =
+                (player.PlayerId - 1) / 2;
+        }
+        else
+        {
+            team =
+                PTeam.Team.Blue;
+
+            teamIndex =
+                (player.PlayerId / 2) - 1;
+        }
+
+        // ============================
+        // SPAWN POINT
+        // ============================
+
+        Transform selectedSpawn =
+            teamSpawnManager
+                .GetSpawnPoint(
+                    team,
+                    teamIndex
+                );
 
         if (selectedSpawn == null)
         {
             Debug.LogError(
-                $"NO SPAWN FOUND FOR PLAYER {player.PlayerId}"
+                $"NO SPAWN FOUND | " +
+                $"Player: {player.PlayerId} | " +
+                $"Team: {team} | " +
+                $"TeamIndex: {teamIndex}"
             );
 
             return;
         }
 
+        // ============================
+        // ROTATION
+        // ============================
+
         Quaternion spawnRotation =
             selectedSpawn.rotation;
+
+        Transform lookTarget =
+            teamSpawnManager.LookTarget;
 
         if (lookTarget != null)
         {
@@ -188,7 +302,8 @@ public class NetworkBootstrap :
                 lookTarget.position -
                 selectedSpawn.position;
 
-            direction.y = 0f;
+            direction.y =
+                0f;
 
             if (direction.sqrMagnitude >
                 0.001f)
@@ -201,6 +316,10 @@ public class NetworkBootstrap :
             }
         }
 
+        // ============================
+        // SPAWN
+        // ============================
+
         NetworkObject playerObject =
             runner.Spawn(
                 playerPrefab,
@@ -212,7 +331,8 @@ public class NetworkBootstrap :
         if (playerObject == null)
         {
             Debug.LogError(
-                "PLAYER SPAWN FAILED"
+                "NETWORK BOOTSTRAP: " +
+                "Player spawn failed."
             );
 
             return;
@@ -223,31 +343,16 @@ public class NetworkBootstrap :
             playerObject
         );
 
+        localPlayerSpawned =
+            true;
+
         Debug.Log(
             $"PLAYER SPAWNED | " +
             $"ID: {player.PlayerId} | " +
+            $"TEAM: {team} | " +
+            $"TEAM INDEX: {teamIndex} | " +
             $"SPAWN: {selectedSpawn.name}"
         );
-    }
-
-    // ============================
-    // GET SPAWN
-    // ============================
-
-    private Transform GetSpawnPoint(
-        PlayerRef player)
-    {
-        if (player.PlayerId == 1)
-        {
-            return spawnPointP1;
-        }
-
-        if (player.PlayerId == 2)
-        {
-            return spawnPointP2;
-        }
-
-        return spawnPointP1;
     }
 
     // ============================
@@ -311,7 +416,8 @@ public class NetworkBootstrap :
 
     public void OnConnectRequest(
         NetworkRunner runner,
-        NetworkRunnerCallbackArgs.ConnectRequest request,
+        NetworkRunnerCallbackArgs
+            .ConnectRequest request,
         byte[] token)
     {
         request.Accept();
@@ -339,11 +445,6 @@ public class NetworkBootstrap :
     public void OnHostMigration(
         NetworkRunner runner,
         HostMigrationToken hostMigrationToken)
-    {
-    }
-
-    public void OnSceneLoadDone(
-        NetworkRunner runner)
     {
     }
 

@@ -8,19 +8,16 @@ public class NetworkGameManager : NetworkBehaviour
     // ============================
 
     [Header("Match")]
-    [SerializeField] private int killsToWin = 5;
-    [SerializeField] private int minimumPlayers = 2;
+    [SerializeField]
+    private int killsToWin = 5;
 
     // ============================
-    // SPAWNS
+    // FRIENDLY FIRE CONFIG
     // ============================
 
-    [Header("Spawns")]
-    [SerializeField] private Transform spawnPointP1;
-    [SerializeField] private Transform spawnPointP2;
-
-    [Header("Look Target")]
-    [SerializeField] private Transform lookTarget;
+    [Header("Friendly Fire")]
+    [SerializeField]
+    private bool defaultFriendlyFire = false;
 
     // ============================
     // NETWORK STATE
@@ -36,14 +33,48 @@ public class NetworkGameManager : NetworkBehaviour
     public PlayerRef Winner { get; set; }
 
     // ============================
+    // TEAM SCORES
+    // ============================
+
+    [Networked]
+    public int RedScore { get; set; }
+
+    [Networked]
+    public int BlueScore { get; set; }
+
+    // ============================
+    // TEAM COUNTS
+    // ============================
+
+    [Networked]
+    public int RedPlayerCount { get; set; }
+
+    [Networked]
+    public int BluePlayerCount { get; set; }
+
+    // ============================
+    // WINNER TEAM
+    // ============================
+
+    [Networked]
+    public PTeam.Team WinningTeam { get; set; }
+
+    [Networked]
+    public NetworkBool HasWinningTeam { get; set; }
+
+    // ============================
+    // FRIENDLY FIRE
+    // ============================
+
+    [Networked]
+    public NetworkBool FriendlyFireEnabled { get; set; }
+
+    // ============================
     // PUBLIC
     // ============================
 
     public int KillsToWin =>
         killsToWin;
-
-    public Transform LookTarget =>
-        lookTarget;
 
     public bool IsReady =>
         Object != null &&
@@ -65,11 +96,41 @@ public class NetworkGameManager : NetworkBehaviour
 
         MatchStarted = false;
         GameOver = false;
-        Winner = PlayerRef.None;
+
+        Winner =
+            PlayerRef.None;
+
+        RedScore = 0;
+        BlueScore = 0;
+
+        RedPlayerCount = 0;
+        BluePlayerCount = 0;
+
+        HasWinningTeam = false;
+        
+        FriendlyFireEnabled =
+            GameSettings.FriendlyFireEnabled;
 
         Debug.Log(
-            "NETWORK GAME MANAGER READY"
+            $"NETWORK GAME MANAGER READY | " +
+            $"FRIENDLY FIRE: " +
+            $"{(FriendlyFireEnabled ? "ON" : "OFF")}"
         );
+    }
+
+    // ============================
+    // LOCAL INPUT
+    // ============================
+
+    private void Update()
+    {
+        if (!IsReady)
+            return;
+
+        if (Input.GetKeyDown(KeyCode.F1))
+        {
+            ToggleFriendlyFire();
+        }
     }
 
     // ============================
@@ -81,7 +142,104 @@ public class NetworkGameManager : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        UpdateTeamCounts();
         UpdateMatchState();
+        UpdateTeamScores();
+        CheckTeamVictory();
+    }
+
+    // ============================
+    // FRIENDLY FIRE TOGGLE
+    // ============================
+
+    public void ToggleFriendlyFire()
+    {
+        if (!IsReady)
+            return;
+
+        RPC_RequestFriendlyFireToggle();
+    }
+
+    // ============================
+    // FRIENDLY FIRE RPC
+    // ============================
+
+    [Rpc(
+        RpcSources.All,
+        RpcTargets.StateAuthority
+    )]
+    private void RPC_RequestFriendlyFireToggle()
+    {
+        FriendlyFireEnabled =
+            !FriendlyFireEnabled;
+
+        RPC_FriendlyFireChanged(
+            FriendlyFireEnabled
+        );
+    }
+
+    // ============================
+    // FRIENDLY FIRE MESSAGE
+    // ============================
+
+    [Rpc(
+        RpcSources.StateAuthority,
+        RpcTargets.All
+    )]
+    private void RPC_FriendlyFireChanged(
+        NetworkBool enabled)
+    {
+        Debug.Log(
+            $"FRIENDLY FIRE: " +
+            $"{(enabled ? "ON" : "OFF")}"
+        );
+    }
+
+    // ============================
+    // UPDATE TEAM COUNTS
+    // ============================
+
+    private void UpdateTeamCounts()
+    {
+        int redCount = 0;
+        int blueCount = 0;
+
+        PTeam[] teams =
+            FindObjectsByType<PTeam>(
+                FindObjectsSortMode.None
+            );
+
+        foreach (
+            PTeam team
+            in teams)
+        {
+            if (team == null)
+                continue;
+
+            if (team.Object == null)
+                continue;
+
+            if (!team.Object.IsValid)
+                continue;
+
+            if (team.CurrentTeam ==
+                PTeam.Team.Red)
+            {
+                redCount++;
+            }
+            else if (
+                team.CurrentTeam ==
+                PTeam.Team.Blue)
+            {
+                blueCount++;
+            }
+        }
+
+        RedPlayerCount =
+            redCount;
+
+        BluePlayerCount =
+            blueCount;
     }
 
     // ============================
@@ -93,55 +251,124 @@ public class NetworkGameManager : NetworkBehaviour
         if (GameOver)
             return;
 
-        int playerCount = 0;
+        bool hasRed =
+            RedPlayerCount >= 1;
 
-        foreach (PlayerRef player in Runner.ActivePlayers)
-        {
-            playerCount++;
-        }
+        bool hasBlue =
+            BluePlayerCount >= 1;
 
-        if (playerCount >= minimumPlayers)
+        bool canStart =
+            hasRed &&
+            hasBlue;
+
+        if (canStart)
         {
             if (!MatchStarted)
             {
-                MatchStarted = true;
+                MatchStarted =
+                    true;
 
                 Debug.Log(
-                    $"MATCH STARTED | Players: {playerCount}"
+                    $"MATCH STARTED | " +
+                    $"RED: {RedPlayerCount} | " +
+                    $"BLUE: {BluePlayerCount}"
                 );
             }
         }
         else
         {
-            MatchStarted = false;
+            MatchStarted =
+                false;
         }
     }
 
     // ============================
-    // CHECK VICTORY
+    // UPDATE TEAM SCORES
+    // ============================
+
+    private void UpdateTeamScores()
+    {
+        int redScore = 0;
+        int blueScore = 0;
+
+        PHealth[] players =
+            FindObjectsByType<PHealth>(
+                FindObjectsSortMode.None
+            );
+
+        foreach (
+            PHealth health
+            in players)
+        {
+            if (health == null)
+                continue;
+
+            PTeam team =
+                health.GetComponent<PTeam>();
+
+            if (team == null)
+                continue;
+
+            if (team.CurrentTeam ==
+                PTeam.Team.Red)
+            {
+                redScore +=
+                    health.Kills;
+            }
+            else if (
+                team.CurrentTeam ==
+                PTeam.Team.Blue)
+            {
+                blueScore +=
+                    health.Kills;
+            }
+        }
+
+        RedScore =
+            redScore;
+
+        BlueScore =
+            blueScore;
+    }
+
+    // ============================
+    // CHECK TEAM VICTORY
+    // ============================
+
+    private void CheckTeamVictory()
+    {
+        if (GameOver)
+            return;
+
+        if (!MatchStarted)
+            return;
+
+        if (RedScore >= killsToWin)
+        {
+            EndGame(
+                PTeam.Team.Red
+            );
+
+            return;
+        }
+
+        if (BlueScore >= killsToWin)
+        {
+            EndGame(
+                PTeam.Team.Blue
+            );
+        }
+    }
+
+    // ============================
+    // LEGACY CHECK
     // ============================
 
     public void CheckVictory(
         PHealth killer)
     {
-        if (!Object.HasStateAuthority)
-            return;
-
-        if (GameOver)
-            return;
-
-        if (killer == null)
-            return;
-
-        if (killer.Kills < killsToWin)
-            return;
-
-        PlayerRef winner =
-            killer.Object.InputAuthority;
-
-        EndGame(
-            winner
-        );
+        // Se mantiene por compatibilidad
+        // con PHealth.
     }
 
     // ============================
@@ -149,7 +376,7 @@ public class NetworkGameManager : NetworkBehaviour
     // ============================
 
     private void EndGame(
-        PlayerRef winner)
+        PTeam.Team winningTeam)
     {
         if (!Object.HasStateAuthority)
             return;
@@ -157,61 +384,44 @@ public class NetworkGameManager : NetworkBehaviour
         if (GameOver)
             return;
 
-        GameOver = true;
-        Winner = winner;
+        WinningTeam =
+            winningTeam;
 
-        RPC_GameOver(
-            winner
-        );
-    }
+        HasWinningTeam =
+            true;
 
-    [Rpc(
-        RpcSources.StateAuthority,
-        RpcTargets.All
-    )]
-    private void RPC_GameOver(
-        PlayerRef winner)
-    {
+        GameOver =
+            true;
+
+        MatchStarted =
+            false;
+
+        Winner =
+            PlayerRef.None;
+
         Debug.Log(
-            $"GAME OVER | WINNER: PLAYER {winner.PlayerId}"
+            $"GAME OVER | " +
+            $"WINNING TEAM: {winningTeam} | " +
+            $"RED: {RedScore} | " +
+            $"BLUE: {BlueScore}"
         );
     }
 
     // ============================
-    // SPAWN POINT
-    // ============================
-
-    public Transform GetSpawnPoint(
-        PlayerRef player)
-    {
-        if (player.PlayerId == 1)
-        {
-            return spawnPointP1;
-        }
-
-        if (player.PlayerId == 2)
-        {
-            return spawnPointP2;
-        }
-
-        return spawnPointP1;
-    }
-
-    // ============================
-    // RESTART
+    // RESTART REQUEST
     // ============================
 
     public void RequestRestart()
     {
-        if (Object.HasStateAuthority)
-        {
-            RestartMatch();
-        }
-        else
-        {
-            RPC_RequestRestart();
-        }
+        if (!IsReady)
+            return;
+
+        RPC_RequestRestart();
     }
+
+    // ============================
+    // RESTART RPC
+    // ============================
 
     [Rpc(
         RpcSources.All,
@@ -222,6 +432,10 @@ public class NetworkGameManager : NetworkBehaviour
         RestartMatch();
     }
 
+    // ============================
+    // RESTART MATCH
+    // ============================
+
     private void RestartMatch()
     {
         if (!Object.HasStateAuthority)
@@ -231,29 +445,37 @@ public class NetworkGameManager : NetworkBehaviour
             "RESTARTING MATCH..."
         );
 
-        GameOver = false;
-        MatchStarted = false;
-        Winner = PlayerRef.None;
+        GameOver =
+            false;
+
+        MatchStarted =
+            false;
+
+        Winner =
+            PlayerRef.None;
+
+        RedScore =
+            0;
+
+        BlueScore =
+            0;
+
+        HasWinningTeam =
+            false;
+
+        PHealth[] players =
+            FindObjectsByType<PHealth>(
+                FindObjectsSortMode.None
+            );
 
         foreach (
-            PlayerRef player
-            in Runner.ActivePlayers)
+            PHealth health
+            in players)
         {
-            NetworkObject playerObject =
-                Runner.GetPlayerObject(
-                    player
-                );
-
-            if (playerObject == null)
+            if (health == null)
                 continue;
 
-            PHealth health =
-                playerObject.GetComponent<PHealth>();
-
-            if (health != null)
-            {
-                health.RPC_ResetPlayer();
-            }
+            health.RPC_ResetPlayer();
         }
 
         Debug.Log(

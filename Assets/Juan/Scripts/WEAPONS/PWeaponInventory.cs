@@ -215,6 +215,48 @@ public class PWeaponInventory : NetworkBehaviour
     }
 
     // ============================
+    // RESET INVENTORY
+    // ============================
+
+    public void ResetInventory()
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        // Shotgun
+        HasShotgun = false;
+        ShotgunLoaded = 0;
+        ShotgunReserve = 0;
+
+        // Assault Rifle
+        HasAssaultRifle = false;
+        AssaultRifleLoaded = 0;
+        AssaultRifleReserve = 0;
+
+        // Sniper
+        HasSniper = false;
+        SniperLoaded = 0;
+        SniperReserve = 0;
+
+        // Rocket Launcher
+        HasRocketLauncher = false;
+        RocketLauncherLoaded = 0;
+        RocketLauncherReserve = 0;
+
+        // Grenade
+        HasGrenade = false;
+        GrenadeLoaded = 0;
+        GrenadeReserve = 0;
+
+        // Volver siempre a la pistola
+        CurrentWeapon = WeaponType.Pistol;
+
+        Debug.Log(
+            $"PLAYER {Object.InputAuthority.PlayerId} INVENTORY RESET"
+        );
+    }
+
+    // ============================
     // INPUT CAMBIO DE ARMA
     // ============================
 
@@ -315,9 +357,7 @@ public class PWeaponInventory : NetworkBehaviour
 
     private void WeaponChanged()
     {
-        Debug.Log(
-            $"ARMA EQUIPADA: {CurrentWeaponName}"
-        );
+
     }
 
     // ============================

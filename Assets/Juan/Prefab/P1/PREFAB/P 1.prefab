@@ -332,6 +332,8 @@ GameObject:
   - component: {fileID: 7869794513108565663}
   - component: {fileID: 5320485385885501279}
   - component: {fileID: 971206310876355250}
+  - component: {fileID: 1513471831791819013}
+  - component: {fileID: 7461351448029779795}
   m_Layer: 0
   m_Name: P 1
   m_TagString: Untagged
@@ -387,6 +389,8 @@ MonoBehaviour:
   - {fileID: 7869794513108565663}
   - {fileID: 5320485385885501279}
   - {fileID: 971206310876355250}
+  - {fileID: 1513471831791819013}
+  - {fileID: 7461351448029779795}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7220554690742793090
 MonoBehaviour:
@@ -693,6 +697,33 @@ MonoBehaviour:
   spawnForwardOffset: 1
   reloadTime: 1
   showDebug: 1
+--- !u!114 &1513471831791819013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e53ee0e099b0eb54e9cb1a6b097fc0cf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _CurrentTeam: 0
+  _TeamIndex: 0
+--- !u!114 &7461351448029779795
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 09ddb724b24794247a52a5974f9bc5f8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  audioListener: {fileID: 5591467042613865616}
 --- !u!1 &7177859990253807386
 GameObject:
   m_ObjectHideFlags: 0

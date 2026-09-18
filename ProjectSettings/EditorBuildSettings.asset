@@ -8,9 +8,18 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 99c9720ab356a0642a771bea13969a05
-  - enabled: 1
+  - enabled: 0
     path: Assets/Juan/Scenas/ARENA.unity
     guid: 7dde5837dbc08974bbfe5c71362c5326
+  - enabled: 1
+    path: Assets/Scenes/MENU.unity
+    guid: 907ba966df3aca44888ac14288ac24bf
+  - enabled: 1
+    path: Assets/Scenes/WAITING.unity
+    guid: f6f15226074c2c04b93d4d268622a73b
+  - enabled: 1
+    path: Assets/Scenes/ARENA.unity
+    guid: b27eb645989d02d46a5ec9f52a978704
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0
