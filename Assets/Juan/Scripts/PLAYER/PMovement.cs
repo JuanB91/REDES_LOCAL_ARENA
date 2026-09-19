@@ -15,6 +15,11 @@ public class PMovement : NetworkBehaviour
     [SerializeField] private float doubleTapTime = 0.25f;
     [SerializeField] private float ghostStepCooldown = 0.5f;
 
+    [Header("Partículas")]
+    [SerializeField] private ParticleSystem footstepParticles;
+
+    [Networked] private NetworkBool IsMoving { get; set; }
+
     private CharacterController controller;
     private float verticalVelocity;
 
@@ -104,6 +109,8 @@ public class PMovement : NetworkBehaviour
 
             lastDPress = Time.time;
         }
+
+        
     }
 
     private void TryGhostStep(Vector3 direction)
@@ -187,6 +194,8 @@ public class PMovement : NetworkBehaviour
         inputDirection.y = 0f;
         inputDirection.Normalize();
 
+        IsMoving = inputDirection != Vector3.zero;
+
         // -------------------------
         // SALTO
         // -------------------------
@@ -242,6 +251,28 @@ public class PMovement : NetworkBehaviour
         {
             isGhostStepping = false;
             ghostStepTimeRemaining = 0f;
+        }
+    }
+    public override void Render()
+    {
+        if (footstepParticles == null) return;
+
+        if (IsMoving)
+        {
+            if (!footstepParticles.isPlaying)
+            {
+                footstepParticles.Play();
+            }
+        }
+        else
+        {
+            if (footstepParticles.isPlaying)
+            {
+                footstepParticles.Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmitting
+                );
+            }
         }
     }
 }
