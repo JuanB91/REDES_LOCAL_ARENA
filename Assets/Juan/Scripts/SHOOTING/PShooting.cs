@@ -30,7 +30,7 @@ public class PShooting : NetworkBehaviour
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
 
-   
+    [SerializeField] private Transform firePoint;
 
     private int currentAmmo;
     private bool isReloading;
