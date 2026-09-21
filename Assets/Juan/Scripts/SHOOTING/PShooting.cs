@@ -30,6 +30,9 @@ public class PShooting : NetworkBehaviour
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
 
+    [Header("Efecto de disparo")]
+    [SerializeField] private ParticleSystem muzzleFlash;
+
     [SerializeField] private Transform firePoint;
 
     private int currentAmmo;
@@ -182,10 +185,24 @@ public class PShooting : NetworkBehaviour
 
     private void Shoot()
     {
+        if (muzzleFlash != null)
+        {
+            muzzleFlash.Play();
+        }
+
         if (playerCamera == null)
         {
             Debug.LogError(
                 "PShooting: Player Camera no está asignada."
+            );
+
+            return;
+        }
+
+        if (firePoint == null)
+        {
+            Debug.LogError(
+                "PShooting: Fire Point no está asignado."
             );
 
             return;
@@ -225,12 +242,12 @@ public class PShooting : NetworkBehaviour
         shotDirection.Normalize();
 
         // ============================
-        // RAYCAST
+        // RAYCAST DESDE FIRE POINT
         // ============================
 
         Ray ray =
             new Ray(
-                playerCamera.transform.position,
+                firePoint.position,
                 shotDirection
             );
 
@@ -277,11 +294,7 @@ public class PShooting : NetworkBehaviour
         // ============================
 
         Vector3 tracerStart =
-            playerCamera.transform.position +
-            playerCamera.transform.forward *
-            tracerForwardOffset -
-            playerCamera.transform.up *
-            tracerDownOffset;
+            firePoint.position;
 
         // ============================
         // TRACER

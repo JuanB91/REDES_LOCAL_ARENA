@@ -6,6 +6,7 @@ public class PSniper : NetworkBehaviour
 {
     [Header("Referencias")]
     [SerializeField] private Camera playerCamera;
+    [SerializeField] private Transform firePoint;
 
     // ============================
     // SNIPER
@@ -197,6 +198,15 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
+        if (firePoint == null)
+        {
+            Debug.LogError(
+                "PSniper: Fire Point no está asignado."
+            );
+
+            return;
+        }
+
         // -------------------------
         // DIRECCIÓN BASE
         // -------------------------
@@ -231,11 +241,11 @@ public class PSniper : NetworkBehaviour
         shotDirection.Normalize();
 
         // -------------------------
-        // RAYCAST
+        // RAYCAST DESDE FIRE POINT
         // -------------------------
 
         Ray ray = new Ray(
-            playerCamera.transform.position,
+            firePoint.position,
             shotDirection
         );
 
@@ -273,15 +283,11 @@ public class PSniper : NetworkBehaviour
         }
 
         // -------------------------
-        // ORIGEN VISUAL DEL TRACER
+        // ORIGEN DEL TRACER
         // -------------------------
 
         Vector3 tracerStart =
-            playerCamera.transform.position +
-            playerCamera.transform.forward *
-            tracerForwardOffset -
-            playerCamera.transform.up *
-            tracerDownOffset;
+            firePoint.position;
 
         StartCoroutine(
             ShowTracer(

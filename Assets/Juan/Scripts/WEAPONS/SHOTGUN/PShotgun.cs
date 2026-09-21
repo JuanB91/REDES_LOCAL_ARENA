@@ -6,6 +6,7 @@ public class PShotgun : NetworkBehaviour
 {
     [Header("Referencias")]
     [SerializeField] private Camera playerCamera;
+    [SerializeField] private Transform firePoint;
 
     [Header("Escopeta")]
     [SerializeField] private float range = 30f;
@@ -33,6 +34,7 @@ public class PShotgun : NetworkBehaviour
     [Header("Origen visual del tracer")]
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
+    
 
     private PWeaponInventory weaponInventory;
 
@@ -210,6 +212,15 @@ public class PShotgun : NetworkBehaviour
 
     private void FireSinglePellet()
     {
+        if (firePoint == null)
+        {
+            Debug.LogError(
+                "PShotgun: Fire Point no está asignado."
+            );
+
+            return;
+        }
+
         Vector3 shotDirection =
             playerCamera.transform.forward;
 
@@ -235,8 +246,12 @@ public class PShotgun : NetworkBehaviour
 
         shotDirection.Normalize();
 
+        // ============================
+        // RAYCAST DESDE FIRE POINT
+        // ============================
+
         Ray ray = new Ray(
-            playerCamera.transform.position,
+            firePoint.position,
             shotDirection
         );
 
@@ -292,12 +307,12 @@ public class PShotgun : NetworkBehaviour
                 range;
         }
 
+        // ============================
+        // ORIGEN DEL TRACER
+        // ============================
+
         Vector3 tracerStart =
-            playerCamera.transform.position +
-            playerCamera.transform.forward *
-            tracerForwardOffset -
-            playerCamera.transform.up *
-            tracerDownOffset;
+            firePoint.position;
 
         StartCoroutine(
             ShowTracer(

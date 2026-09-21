@@ -6,6 +6,7 @@ public class PAssaultRifle : NetworkBehaviour
 {
     [Header("Referencias")]
     [SerializeField] private Camera playerCamera;
+    [SerializeField] private Transform firePoint;
 
     [Header("Assault Rifle")]
     [SerializeField] private float range = 100f;
@@ -212,6 +213,15 @@ public class PAssaultRifle : NetworkBehaviour
             return;
         }
 
+        if (firePoint == null)
+        {
+            Debug.LogError(
+                "PAssaultRifle: Fire Point no está asignado."
+            );
+
+            return;
+        }
+
         // -------------------------
         // DIRECCIÓN BASE
         // -------------------------
@@ -246,11 +256,11 @@ public class PAssaultRifle : NetworkBehaviour
         shotDirection.Normalize();
 
         // -------------------------
-        // RAYCAST
+        // RAYCAST DESDE FIRE POINT
         // -------------------------
 
         Ray ray = new Ray(
-            playerCamera.transform.position,
+            firePoint.position,
             shotDirection
         );
 
@@ -284,15 +294,11 @@ public class PAssaultRifle : NetworkBehaviour
         }
 
         // -------------------------
-        // ORIGEN VISUAL DEL TRACER
+        // ORIGEN DEL TRACER
         // -------------------------
 
         Vector3 tracerStart =
-            playerCamera.transform.position +
-            playerCamera.transform.forward *
-            tracerForwardOffset -
-            playerCamera.transform.up *
-            tracerDownOffset;
+            firePoint.position;
 
         StartCoroutine(
             ShowTracer(
