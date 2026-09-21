@@ -30,6 +30,8 @@ public class PAssaultRifle : NetworkBehaviour
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
 
+    [SerializeField] private ParticleSystem muzzleFlash;
+
     private PWeaponInventory weaponInventory;
 
     private bool isReloading;
@@ -204,6 +206,10 @@ public class PAssaultRifle : NetworkBehaviour
 
     private void Shoot()
     {
+        if (muzzleFlash != null)
+        {
+            muzzleFlash.Play();
+        }
         if (playerCamera == null)
         {
             Debug.LogError(

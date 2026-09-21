@@ -51,6 +51,8 @@ public class PSniper : NetworkBehaviour
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
 
+    [SerializeField] private ParticleSystem muzzleFlash;
+
     // ============================
     // REFERENCIAS INTERNAS
     // ============================
@@ -189,6 +191,10 @@ public class PSniper : NetworkBehaviour
 
     private void Shoot()
     {
+        if (muzzleFlash != null)
+        {
+            muzzleFlash.Play();
+        }
         if (playerCamera == null)
         {
             Debug.LogError(

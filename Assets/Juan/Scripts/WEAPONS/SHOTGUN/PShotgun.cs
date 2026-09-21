@@ -34,7 +34,8 @@ public class PShotgun : NetworkBehaviour
     [Header("Origen visual del tracer")]
     [SerializeField] private float tracerForwardOffset = 0.5f;
     [SerializeField] private float tracerDownOffset = 0.15f;
-    
+    [SerializeField] private ParticleSystem muzzleFlash;
+
 
     private PWeaponInventory weaponInventory;
 
@@ -212,6 +213,11 @@ public class PShotgun : NetworkBehaviour
 
     private void FireSinglePellet()
     {
+        if (muzzleFlash != null)
+        {
+            muzzleFlash.Play();
+        }
+
         if (firePoint == null)
         {
             Debug.LogError(

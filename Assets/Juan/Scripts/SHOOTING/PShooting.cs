@@ -13,6 +13,7 @@ public class PShooting : NetworkBehaviour
     [Header("Disparo")]
     [SerializeField] private float range = 100f;
     [SerializeField] private int damage = 25;
+    
 
     [Header("Munición")]
     [SerializeField] private int magazineSize = 6;
