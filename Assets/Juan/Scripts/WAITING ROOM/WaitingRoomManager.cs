@@ -2,6 +2,7 @@ using Fusion;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class WaitingRoomManager : NetworkBehaviour
 {
@@ -27,6 +28,9 @@ public class WaitingRoomManager : NetworkBehaviour
 
     [SerializeField]
     private TMP_Text countdownText;
+
+    [SerializeField]
+    private Button startMatchButton;
 
     [Header("RED Slots")]
     [SerializeField]
@@ -55,6 +59,17 @@ public class WaitingRoomManager : NetworkBehaviour
     [Networked]
     private NetworkBool SceneChangeStarted { get; set; }
 
+    [Networked]
+    [Capacity(16)]
+    private NetworkDictionary<PlayerRef, NetworkString<_16>>
+        PlayerNames => default;
+
+    // ============================
+    // LOCAL
+    // ============================
+
+    private bool localNameSubmitted = false;
+
     // ============================
     // SPAWNED
     // ============================
@@ -67,19 +82,30 @@ public class WaitingRoomManager : NetworkBehaviour
             BluePlayerCount = 0;
 
             CountdownStarted = false;
+            CountdownTimer = TickTimer.None;
 
-            CountdownTimer =
-                TickTimer.None;
-
-            SceneChangeStarted =
-                false;
+            SceneChangeStarted = false;
         }
+
+        localNameSubmitted = false;
 
         UpdateUI();
 
         Debug.Log(
-            "WAITING ROOM MANAGER READY"
+            $"WAITING ROOM MANAGER READY | " +
+            $"SCENE AUTHORITY: {Runner.IsSceneAuthority}"
         );
+    }
+
+    // ============================
+    // UNITY UPDATE
+    // ============================
+
+    private void Update()
+    {
+        // Cada cliente intenta enviar
+        // SU propio nombre.
+        SubmitLocalPlayerName();
     }
 
     // ============================
@@ -92,7 +118,125 @@ public class WaitingRoomManager : NetworkBehaviour
             return;
 
         UpdatePlayerCounts();
+
         UpdateCountdown();
+    }
+
+    // ============================
+    // SUBMIT LOCAL NAME
+    // ============================
+
+    private void SubmitLocalPlayerName()
+    {
+        if (localNameSubmitted)
+            return;
+
+        if (Runner == null)
+            return;
+
+        if (Object == null ||
+            !Object.IsValid)
+            return;
+
+        PlayerRef localPlayer =
+            Runner.LocalPlayer;
+
+        if (localPlayer == PlayerRef.None)
+            return;
+
+        string playerName =
+            PlayerProfile.PlayerName;
+
+        if (string.IsNullOrWhiteSpace(playerName))
+        {
+            playerName =
+                $"PLAYER {localPlayer.PlayerId}";
+        }
+
+        playerName =
+            playerName.Trim();
+
+        if (playerName.Length > 16)
+        {
+            playerName =
+                playerName.Substring(
+                    0,
+                    16
+                );
+        }
+
+        Debug.Log(
+            $"SENDING PLAYER NAME | " +
+            $"PlayerId: {localPlayer.PlayerId} | " +
+            $"Name: {playerName}"
+        );
+
+        RPC_SubmitPlayerName(
+            localPlayer,
+            playerName
+        );
+
+        localNameSubmitted =
+            true;
+
+        Debug.Log(
+            $"PLAYER NAME SENT | " +
+            $"PlayerId: {localPlayer.PlayerId} | " +
+            $"Name: {playerName}"
+        );
+    }
+
+    // ============================
+    // PLAYER NAME RPC
+    // ============================
+
+    [Rpc(
+        RpcSources.All,
+        RpcTargets.StateAuthority
+    )]
+    private void RPC_SubmitPlayerName(
+        PlayerRef player,
+        NetworkString<_16> playerName)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        PlayerNames.Set(
+            player,
+            playerName
+        );
+
+        Debug.Log(
+            $"PLAYER NAME REGISTERED | " +
+            $"PlayerId: {player.PlayerId} | " +
+            $"Name: {playerName.Value}"
+        );
+    }
+
+    // ============================
+    // GET PLAYER NAME
+    // ============================
+
+    private string GetPlayerName(
+        PlayerRef player)
+    {
+        if (PlayerNames.TryGet(
+            player,
+            out NetworkString<_16> networkName))
+        {
+            string name =
+                networkName.Value;
+
+            if (!string.IsNullOrWhiteSpace(
+                name
+            ))
+            {
+                return name;
+            }
+        }
+
+        return
+            $"PLAYER {player.PlayerId}";
     }
 
     // ============================
@@ -126,6 +270,18 @@ public class WaitingRoomManager : NetworkBehaviour
     }
 
     // ============================
+    // CAN START MATCH
+    // ============================
+
+    private bool CanStartMatch()
+    {
+        return
+            RedPlayerCount >= 1 &&
+            BluePlayerCount >= 1 &&
+            !SceneChangeStarted;
+    }
+
+    // ============================
     // COUNTDOWN
     // ============================
 
@@ -134,15 +290,8 @@ public class WaitingRoomManager : NetworkBehaviour
         if (SceneChangeStarted)
             return;
 
-        bool hasRed =
-            RedPlayerCount >= 1;
-
-        bool hasBlue =
-            BluePlayerCount >= 1;
-
         bool canStart =
-            hasRed &&
-            hasBlue;
+            CanStartMatch();
 
         // ============================
         // WAITING FOR PLAYERS
@@ -196,21 +345,90 @@ public class WaitingRoomManager : NetworkBehaviour
         // COUNTDOWN FINISHED
         // ============================
 
-        if (CountdownTimer.Expired(Runner))
+        if (CountdownTimer.Expired(
+            Runner
+        ))
         {
-            CountdownTimer =
-                TickTimer.None;
+            StartMatch(
+                "COUNTDOWN FINISHED"
+            );
+        }
+    }
 
-            SceneChangeStarted =
-                true;
+    // ============================
+    // START MATCH BUTTON
+    // ============================
 
+    public void RequestStartMatch()
+    {
+        if (!Runner.IsSceneAuthority)
+        {
             Debug.Log(
-                "COUNTDOWN FINISHED | " +
-                "LOADING ARENA"
+                "START MATCH BLOCKED | " +
+                "NOT SCENE AUTHORITY"
             );
 
-            LoadArena();
+            return;
         }
+
+        if (SceneChangeStarted)
+            return;
+
+        if (!CanStartMatch())
+        {
+            Debug.Log(
+                "START MATCH BLOCKED | " +
+                "NEED AT LEAST 1 RED AND 1 BLUE"
+            );
+
+            return;
+        }
+
+        Debug.Log(
+            "OWNER PRESSED START MATCH"
+        );
+
+        StartMatch(
+            "MANUAL START"
+        );
+    }
+
+    // ============================
+    // START MATCH
+    // ============================
+
+    private void StartMatch(
+        string reason)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (!Runner.IsSceneAuthority)
+            return;
+
+        if (SceneChangeStarted)
+            return;
+
+        if (!CanStartMatch())
+            return;
+
+        CountdownStarted =
+            false;
+
+        CountdownTimer =
+            TickTimer.None;
+
+        SceneChangeStarted =
+            true;
+
+        Debug.Log(
+            $"{reason} | " +
+            $"LOADING ARENA | " +
+            $"RED: {RedPlayerCount} | " +
+            $"BLUE: {BluePlayerCount}"
+        );
+
+        LoadArena();
     }
 
     // ============================
@@ -278,8 +496,12 @@ public class WaitingRoomManager : NetworkBehaviour
     private void UpdateUI()
     {
         UpdateStatusText();
+
         UpdateCountdownText();
+
         UpdatePlayerSlots();
+
+        UpdateStartButton();
     }
 
     // ============================
@@ -338,10 +560,9 @@ public class WaitingRoomManager : NetworkBehaviour
         }
 
         float? remaining =
-            CountdownTimer
-                .RemainingTime(
-                    Runner
-                );
+            CountdownTimer.RemainingTime(
+                Runner
+            );
 
         if (!remaining.HasValue)
         {
@@ -366,6 +587,42 @@ public class WaitingRoomManager : NetworkBehaviour
     }
 
     // ============================
+    // START BUTTON
+    // ============================
+
+    private void UpdateStartButton()
+    {
+        if (startMatchButton == null)
+            return;
+
+        // Solo el dueño puede verlo.
+        if (!Runner.IsSceneAuthority)
+        {
+            startMatchButton
+                .gameObject
+                .SetActive(false);
+
+            return;
+        }
+
+        // Solo aparece cuando
+        // existen ambos equipos.
+        bool shouldShow =
+            RedPlayerCount >= 1 &&
+            BluePlayerCount >= 1 &&
+            !SceneChangeStarted;
+
+        startMatchButton
+            .gameObject
+            .SetActive(
+                shouldShow
+            );
+
+        startMatchButton.interactable =
+            shouldShow;
+    }
+
+    // ============================
     // PLAYER SLOTS
     // ============================
 
@@ -386,6 +643,11 @@ public class WaitingRoomManager : NetworkBehaviour
             PlayerRef player
             in Runner.ActivePlayers)
         {
+            string displayName =
+                GetPlayerName(
+                    player
+                );
+
             if (player.PlayerId % 2 != 0)
             {
                 if (redSlots != null &&
@@ -394,7 +656,7 @@ public class WaitingRoomManager : NetworkBehaviour
                     if (redSlots[redIndex] != null)
                     {
                         redSlots[redIndex].text =
-                            $"PLAYER {player.PlayerId}";
+                            displayName;
                     }
                 }
 
@@ -408,7 +670,7 @@ public class WaitingRoomManager : NetworkBehaviour
                     if (blueSlots[blueIndex] != null)
                     {
                         blueSlots[blueIndex].text =
-                            $"PLAYER {player.PlayerId}";
+                            displayName;
                     }
                 }
 

@@ -6,6 +6,17 @@ using UnityEngine.UI;
 public class MainMenuUI : MonoBehaviour
 {
     // ============================
+    // PLAYER NAME
+    // ============================
+
+    [Header("Player Name")]
+    [SerializeField]
+    private TMP_InputField playerNameInput;
+
+    [SerializeField]
+    private int maxNameLength = 16;
+
+    // ============================
     // FRIENDLY FIRE
     // ============================
 
@@ -42,6 +53,30 @@ public class MainMenuUI : MonoBehaviour
 
         UpdateFriendlyFireVisual();
 
+        // ============================
+        // PLAYER NAME INPUT
+        // ============================
+
+        if (playerNameInput != null)
+        {
+            playerNameInput.characterLimit =
+                maxNameLength;
+
+            if (!string.IsNullOrWhiteSpace(
+                PlayerProfile.PlayerName
+            ) &&
+                PlayerProfile.PlayerName != "PLAYER")
+            {
+                playerNameInput.text =
+                    PlayerProfile.PlayerName;
+            }
+            else
+            {
+                playerNameInput.text =
+                    "";
+            }
+        }
+
         Debug.Log(
             "MAIN MENU READY | " +
             "FRIENDLY FIRE: OFF"
@@ -54,6 +89,35 @@ public class MainMenuUI : MonoBehaviour
 
     public void PlayGame()
     {
+        // ============================
+        // SAVE PLAYER NAME
+        // ============================
+
+        string enteredName =
+            "";
+
+        if (playerNameInput != null)
+        {
+            enteredName =
+                playerNameInput.text.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(
+            enteredName
+        ))
+        {
+            enteredName =
+                "PLAYER";
+        }
+
+        PlayerProfile.PlayerName =
+            enteredName;
+
+        Debug.Log(
+            $"PLAYER NAME SAVED | " +
+            $"{PlayerProfile.PlayerName}"
+        );
+
         Debug.Log(
             "PLAY BUTTON PRESSED | " +
             "LOADING WAITING"
