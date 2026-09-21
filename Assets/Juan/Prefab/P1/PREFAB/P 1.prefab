@@ -137,6 +137,37 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!1 &763174556513559163
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3208566413604578299}
+  m_Layer: 0
+  m_Name: WEAPONS
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3208566413604578299
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 763174556513559163}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0.921}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8000273573487480483}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1667154856964810080
 GameObject:
   m_ObjectHideFlags: 0
@@ -308,6 +339,7 @@ Transform:
   m_Children:
   - {fileID: 5152619909738371399}
   - {fileID: 1561085309093794511}
+  - {fileID: 3208566413604578299}
   m_Father: {fileID: 410304482083623893}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3315542286789063598
@@ -336,6 +368,7 @@ GameObject:
   - component: {fileID: 7461351448029779795}
   - component: {fileID: 760002399394171364}
   - component: {fileID: 2916522802983582647}
+  - component: {fileID: 6388212855571186836}
   m_Layer: 0
   m_Name: P 1
   m_TagString: Untagged
@@ -397,6 +430,7 @@ MonoBehaviour:
   - {fileID: 7461351448029779795}
   - {fileID: 760002399394171364}
   - {fileID: 2916522802983582647}
+  - {fileID: 6388212855571186836}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &7220554690742793090
 MonoBehaviour:
@@ -535,7 +569,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2ebc1c6e3e618ae4aba106624f82c642, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 100
+  maxHealth: 200
   respawnDelay: 3
   bodyObject: {fileID: 2273518425658698986}
   _Health: 0
@@ -764,6 +798,25 @@ MonoBehaviour:
   fallbackName: PLAYER
   rotateOnlyYAxis: 1
   rotationOffsetY: 180
+--- !u!114 &6388212855571186836
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3315542286789063598}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 736baa05c28259c4ebccf109ab270aad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  inventory: {fileID: 1037776481514168899}
+  pistolVisual: {fileID: 0}
+  shotgunVisual: {fileID: 0}
+  assaultRifleVisual: {fileID: 0}
+  sniperVisual: {fileID: 0}
+  rocketLauncherVisual: {fileID: 0}
+  grenadeVisual: {fileID: 0}
 --- !u!1 &3533984677444193920
 GameObject:
   m_ObjectHideFlags: 0
