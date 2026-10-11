@@ -12,12 +12,18 @@ EditorBuildSettings:
     path: Assets/Juan/Scenas/ARENA.unity
     guid: 7dde5837dbc08974bbfe5c71362c5326
   - enabled: 1
+    path: Assets/Scenes/Main Menu.unity
+    guid: 9fc0d4010bbf28b4594072e72b8655ab
+  - enabled: 1
+    path: Assets/Scenes/Game.unity
+    guid: deb7774f0047dda45ac8d16107cf7d79
+  - enabled: 0
     path: Assets/Scenes/MENU.unity
     guid: 907ba966df3aca44888ac14288ac24bf
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/WAITING.unity
     guid: f6f15226074c2c04b93d4d268622a73b
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/ARENA.unity
     guid: b27eb645989d02d46a5ec9f52a978704
   m_configObjects:
