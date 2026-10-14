@@ -9,25 +9,38 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
 {
     [SerializeField] private NetworkPrefabRef _playerPrefab;
 
+    private LocalInputs _localInputs;
+    
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        //spawneo al player solo si se cumple una condicion
-        if (runner.IsServer) 
+        if (runner.IsServer)
         {
-            runner.Spawn(_playerPrefab,null, null , player );
-        
+            runner.Spawn(_playerPrefab, null, null, player);
         }
+    }
+
+    public void OnInput(NetworkRunner runner, NetworkInput input)//vamos a usar el callback de OnInput
+    {
+        //Solo si soy local
+        if(!NetworkPlayer.Local)
+            return;
+        //consigo los local inputs
+        if(!_localInputs)
+            _localInputs = NetworkPlayer.Local.LocalInputs;
+
+        //seteo los inputs
+
+        input.Set(_localInputs.GetLocalInputs());
     }
 
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
     {
-        //apago todo
         runner.Shutdown();
     }
     
     
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
-    public void OnInput(NetworkRunner runner, NetworkInput input) { }
+
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
@@ -43,12 +56,9 @@ public class Spawner : MonoBehaviour, INetworkRunnerCallbacks
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player){ }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data){ }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress){ }
-    public void OnReliableDataReceived(
-    NetworkRunner runner,
-    PlayerRef player,
-    ReliableKey key,
-    ReadOnlySpan<byte> data)
-    {
-    }
 
+    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ReadOnlySpan<byte> data)
+    {
+        
+    }
 }

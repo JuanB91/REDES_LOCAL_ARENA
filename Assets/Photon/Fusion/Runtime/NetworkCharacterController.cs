@@ -32,7 +32,7 @@ namespace Fusion {
   [RequireComponent(typeof(CharacterController))]
   [NetworkBehaviourWeaved(NetworkTRSPData.WORDS + NetworkCCData.WORDS)]
   // ReSharper disable once CheckNamespace
-  public sealed unsafe class NetworkCharacterController : NetworkTRSP, INetworkTRSPTeleport, IBeforeAllTicks, IAfterAllTicks, IBeforeCopyPreviousState {
+  public unsafe class NetworkCharacterController : NetworkTRSP, INetworkTRSPTeleport, IBeforeAllTicks, IAfterAllTicks, IBeforeCopyPreviousState {
     ref NetworkCCData CCData => ref ReinterpretState<NetworkCCData>(NetworkTRSPData.WORDS);
 
     [Header("Character Controller Settings")]
@@ -45,6 +45,7 @@ namespace Fusion {
 
     Tick                _initial;
     CharacterController _controller;
+        public CharacterController Controller => _controller;
 
     public Vector3 Velocity {
       get => CCData.Velocity;
@@ -71,7 +72,7 @@ namespace Fusion {
       }
     }
 
-    public void Move(Vector3 direction) {
+    public virtual void Move(Vector3 direction) {
       var deltaTime    = Runner.DeltaTime;
       var previousPos  = transform.position;
       var moveVelocity = CCData.Velocity;
