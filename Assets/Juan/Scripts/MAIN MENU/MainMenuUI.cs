@@ -5,22 +5,18 @@ using UnityEngine.UI;
 
 public class MainMenuUI : MonoBehaviour
 {
-    // ============================
-    // PLAYER NAME
-    // ============================
-
+ 
     [Header("Player Name")]
+
     [SerializeField]
     private TMP_InputField playerNameInput;
 
     [SerializeField]
     private int maxNameLength = 16;
 
-    // ============================
-    // FRIENDLY FIRE
-    // ============================
-
+    
     [Header("Friendly Fire")]
+
     [SerializeField]
     private Button friendlyFireButton;
 
@@ -28,6 +24,7 @@ public class MainMenuUI : MonoBehaviour
     private TMP_Text friendlyFireText;
 
     [Header("Friendly Fire Colors")]
+
     [SerializeField]
     private Color friendlyFireOffColor =
         Color.red;
@@ -36,35 +33,36 @@ public class MainMenuUI : MonoBehaviour
     private Color friendlyFireOnColor =
         Color.green;
 
-    // ============================
-    // START
-    // ============================
+    
+    [Header("Scene")]
 
+    [SerializeField]
+    private string waitingSceneName =
+        "WAITING";
+
+    
+    private bool isLoading;
+
+    
     private void Start()
     {
+        isLoading = false;
+
         Cursor.lockState =
             CursorLockMode.None;
 
         Cursor.visible =
             true;
 
-        GameSettings.FriendlyFireEnabled =
-            false;
-
-        UpdateFriendlyFireVisual();
-
-        // ============================
-        // PLAYER NAME INPUT
-        // ============================
-
+        
         if (playerNameInput != null)
         {
             playerNameInput.characterLimit =
                 maxNameLength;
 
             if (!string.IsNullOrWhiteSpace(
-                PlayerProfile.PlayerName
-            ) &&
+                    PlayerProfile.PlayerName
+                ) &&
                 PlayerProfile.PlayerName != "PLAYER")
             {
                 playerNameInput.text =
@@ -77,22 +75,20 @@ public class MainMenuUI : MonoBehaviour
             }
         }
 
+
+        GameSettings.FriendlyFireEnabled =
+            false;
+
+        UpdateFriendlyFireVisual();
+
         Debug.Log(
-            "MAIN MENU READY | " +
-            "FRIENDLY FIRE: OFF"
+            "MAIN MENU READY"
         );
     }
 
-    // ============================
-    // PLAY
-    // ============================
 
-    public void PlayGame()
+    private void SavePlayerName()
     {
-        // ============================
-        // SAVE PLAYER NAME
-        // ============================
-
         string enteredName =
             "";
 
@@ -103,11 +99,20 @@ public class MainMenuUI : MonoBehaviour
         }
 
         if (string.IsNullOrWhiteSpace(
-            enteredName
-        ))
+            enteredName))
         {
             enteredName =
                 "PLAYER";
+        }
+
+        if (enteredName.Length >
+            maxNameLength)
+        {
+            enteredName =
+                enteredName.Substring(
+                    0,
+                    maxNameLength
+                );
         }
 
         PlayerProfile.PlayerName =
@@ -117,37 +122,97 @@ public class MainMenuUI : MonoBehaviour
             $"PLAYER NAME SAVED | " +
             $"{PlayerProfile.PlayerName}"
         );
+    }
+
+
+    public void HostGame()
+    {
+        if (isLoading)
+            return;
+
+        SavePlayerName();
+
+        NetworkLaunchSettings.SetHost();
 
         Debug.Log(
-            "PLAY BUTTON PRESSED | " +
-            "LOADING WAITING"
+            $"HOST GAME PRESSED | " +
+            $"Player: {PlayerProfile.PlayerName} | " +
+            $"Mode: HOST"
+        );
+
+        LoadWaitingRoom();
+    }
+
+
+    public void JoinGame()
+    {
+        if (isLoading)
+            return;
+
+        SavePlayerName();
+
+        NetworkLaunchSettings.SetClient();
+
+        Debug.Log(
+            $"JOIN GAME PRESSED | " +
+            $"Player: {PlayerProfile.PlayerName} | " +
+            $"Mode: CLIENT"
+        );
+
+        LoadWaitingRoom();
+    }
+
+
+    private void LoadWaitingRoom()
+    {
+        if (isLoading)
+            return;
+
+        if (string.IsNullOrWhiteSpace(
+            waitingSceneName))
+        {
+            Debug.LogError(
+                "MAIN MENU: " +
+                "Waiting Scene Name está vacío."
+            );
+
+            return;
+        }
+
+        isLoading =
+            true;
+
+        Debug.Log(
+            $"LOADING SCENE | " +
+            $"{waitingSceneName}"
         );
 
         SceneManager.LoadScene(
-            "WAITING"
+            waitingSceneName
         );
     }
 
-    // ============================
-    // FRIENDLY FIRE
-    // ============================
 
     public void ToggleFriendlyFire()
     {
+        if (isLoading)
+            return;
+
         GameSettings.FriendlyFireEnabled =
             !GameSettings.FriendlyFireEnabled;
 
         UpdateFriendlyFireVisual();
 
+        string state =
+            GameSettings.FriendlyFireEnabled
+                ? "ON"
+                : "OFF";
+
         Debug.Log(
-            $"FRIENDLY FIRE: " +
-            $"{(GameSettings.FriendlyFireEnabled ? "ON" : "OFF")}"
+            $"FRIENDLY FIRE: {state}"
         );
     }
 
-    // ============================
-    // FRIENDLY FIRE VISUAL
-    // ============================
 
     private void UpdateFriendlyFireVisual()
     {
@@ -155,15 +220,16 @@ public class MainMenuUI : MonoBehaviour
         {
             friendlyFireText.text =
                 GameSettings.FriendlyFireEnabled
-                ? "FRIENDLY FIRE: ON"
-                : "FRIENDLY FIRE: OFF";
+                    ? "FRIENDLY FIRE: ON"
+                    : "FRIENDLY FIRE: OFF";
         }
 
         if (friendlyFireButton == null)
             return;
 
         Image buttonImage =
-            friendlyFireButton.GetComponent<Image>();
+            friendlyFireButton
+                .GetComponent<Image>();
 
         if (buttonImage == null)
             return;
@@ -174,21 +240,25 @@ public class MainMenuUI : MonoBehaviour
                 : friendlyFireOffColor;
     }
 
-    // ============================
-    // QUIT
-    // ============================
 
     public void QuitGame()
     {
+        if (isLoading)
+            return;
+
         Debug.Log(
             "QUIT BUTTON PRESSED"
         );
 
 #if UNITY_EDITOR
+
         UnityEditor.EditorApplication.isPlaying =
             false;
+
 #else
+
         Application.Quit();
+
 #endif
     }
 }

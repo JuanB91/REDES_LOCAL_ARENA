@@ -3,15 +3,24 @@ using UnityEngine;
 
 public class RocketLauncherPickup : NetworkBehaviour
 {
+
     [Header("Pickup")]
-    [SerializeField] private int rocketAmmoAmount = 2;
+    [SerializeField]
+    private int rocketAmmoAmount = 2;
+
 
     [Header("Respawn")]
-    [SerializeField] private float respawnTime = 10f;
+    [SerializeField]
+    private float respawnTime = 10f;
+
 
     [Header("Referencias")]
-    [SerializeField] private GameObject visualObject;
-    [SerializeField] private Collider pickupCollider;
+    [SerializeField]
+    private GameObject visualObject;
+
+    [SerializeField]
+    private Collider pickupCollider;
+
 
     [Networked]
     private NetworkBool IsAvailable { get; set; }
@@ -19,74 +28,92 @@ public class RocketLauncherPickup : NetworkBehaviour
     [Networked]
     private TickTimer RespawnTimer { get; set; }
 
-    // ============================
-    // SPAWN
-    // ============================
 
     public override void Spawned()
     {
         if (Object.HasStateAuthority)
         {
-            IsAvailable = true;
-            RespawnTimer = TickTimer.None;
+            IsAvailable =
+                true;
+
+            RespawnTimer =
+                TickTimer.None;
         }
 
         UpdateVisualState();
+
+        Debug.Log(
+            $"ROCKET LAUNCHER PICKUP READY | " +
+            $"STATE AUTHORITY: {Object.HasStateAuthority}"
+        );
     }
 
-    // ============================
-    // TRIGGER
-    // ============================
 
-    private void OnTriggerEnter(Collider other)
+    private void OnTriggerEnter(
+        Collider other)
     {
-        Debug.Log(
-            $"ROCKET PICKUP detectó: {other.name}"
-        );
 
-        PWeaponInventory inventory =
-            other.GetComponentInParent<PWeaponInventory>();
-
-        if (inventory == null)
+        if (Object == null)
             return;
 
-        // Solo el jugador que tiene autoridad
-        // sobre su personaje puede recogerlo.
-        if (!inventory.Object.HasStateAuthority)
+        if (!Object.IsValid)
             return;
+
+        if (!Object.HasStateAuthority)
+            return;
+
 
         if (!IsAvailable)
             return;
 
-        // ----------------------------
-        // AGREGAR ROCKETS
-        // ----------------------------
+
+        PWeaponInventory inventory =
+            other
+                .GetComponentInParent<
+                    PWeaponInventory
+                >();
+
+        if (inventory == null)
+            return;
+
+        if (inventory.Object == null)
+            return;
+
+        if (!inventory.Object.IsValid)
+            return;
+
+        if (!inventory.Object
+            .HasStateAuthority)
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"ROCKET PICKUP DETECTED | " +
+            $"Player: " +
+            $"{inventory.Object.InputAuthority.PlayerId}"
+        );
+
 
         inventory.AddRocketLauncher(
             rocketAmmoAmount
         );
 
-        // ----------------------------
-        // PEDIR DESACTIVACIÓN
-        // ----------------------------
 
-        RPC_RequestPickup();
+        ConsumePickup();
     }
 
-    // ============================
-    // RPC PICKUP
-    // ============================
 
-    [Rpc(
-        RpcSources.All,
-        RpcTargets.StateAuthority
-    )]
-    private void RPC_RequestPickup()
+    private void ConsumePickup()
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         if (!IsAvailable)
             return;
 
-        IsAvailable = false;
+        IsAvailable =
+            false;
 
         RespawnTimer =
             TickTimer.CreateFromSeconds(
@@ -95,42 +122,46 @@ public class RocketLauncherPickup : NetworkBehaviour
             );
 
         Debug.Log(
-            $"ROCKET LAUNCHER PICKUP RECOGIDO | " +
-            $"Respawn en {respawnTime} segundos."
+            $"ROCKET LAUNCHER PICKUP CONSUMED | " +
+            $"RESPAWN IN: {respawnTime} SECONDS"
         );
     }
 
-    // ============================
-    // RESPawn
-    // ============================
 
     public override void FixedUpdateNetwork()
     {
         if (!Object.HasStateAuthority)
             return;
 
-        if (!IsAvailable &&
-            RespawnTimer.Expired(Runner))
+        if (IsAvailable)
+            return;
+
+        if (!RespawnTimer.IsRunning)
+            return;
+
+        if (!RespawnTimer.Expired(
+            Runner))
         {
-            IsAvailable = true;
-
-            RespawnTimer =
-                TickTimer.None;
-
-            Debug.Log(
-                "ROCKET LAUNCHER PICKUP DISPONIBLE NUEVAMENTE"
-            );
+            return;
         }
+
+        IsAvailable =
+            true;
+
+        RespawnTimer =
+            TickTimer.None;
+
+        Debug.Log(
+            "ROCKET LAUNCHER PICKUP AVAILABLE AGAIN"
+        );
     }
 
-    // ============================
-    // VISUAL
-    // ============================
 
     public override void Render()
     {
         UpdateVisualState();
     }
+
 
     private void UpdateVisualState()
     {
@@ -139,15 +170,23 @@ public class RocketLauncherPickup : NetworkBehaviour
 
         if (visualObject != null)
         {
-            visualObject.SetActive(
-                available
-            );
+            if (visualObject.activeSelf !=
+                available)
+            {
+                visualObject.SetActive(
+                    available
+                );
+            }
         }
 
         if (pickupCollider != null)
         {
-            pickupCollider.enabled =
-                available;
+            if (pickupCollider.enabled !=
+                available)
+            {
+                pickupCollider.enabled =
+                    available;
+            }
         }
     }
 }

@@ -4,10 +4,7 @@ using UnityEngine;
 
 public class PHealth : NetworkBehaviour
 {
-    // ============================
-    // CONFIG
-    // ============================
-
+   
     [Header("Health")]
     [SerializeField]
     private int maxHealth = 100;
@@ -20,10 +17,7 @@ public class PHealth : NetworkBehaviour
     [SerializeField]
     private GameObject bodyObject;
 
-    // ============================
-    // NETWORK
-    // ============================
-
+    
     [Networked]
     public int Health { get; set; }
 
@@ -33,63 +27,32 @@ public class PHealth : NetworkBehaviour
     [Networked]
     public NetworkBool IsDead { get; set; }
 
-    // ============================
-    // REFERENCES
-    // ============================
-
+    
     private NetworkGameManager gameManager;
+
     private TeamSpawnManager teamSpawnManager;
 
     private PTeam team;
 
-    private PMovement movement;
-    private PLook look;
-
     private NetworkTransform networkTransform;
 
     private PWeaponInventory weaponInventory;
+
     private PShooting pistolShooting;
 
-    // ============================
-    // PUBLIC
-    // ============================
+    
+    private Renderer[] bodyRenderers;
 
+ 
     public int MaxHealth =>
         maxHealth;
 
-    // ============================
-    // SPAWNED
-    // ============================
 
     public override void Spawned()
     {
-        gameManager =
-            FindFirstObjectByType<
-                NetworkGameManager
-            >();
+        CacheReferences();
 
-        teamSpawnManager =
-            FindFirstObjectByType<
-                TeamSpawnManager
-            >();
-
-        team =
-            GetComponent<PTeam>();
-
-        movement =
-            GetComponent<PMovement>();
-
-        look =
-            GetComponent<PLook>();
-
-        networkTransform =
-            GetComponent<NetworkTransform>();
-
-        weaponInventory =
-            GetComponent<PWeaponInventory>();
-
-        pistolShooting =
-            GetComponent<PShooting>();
+        CacheBodyRenderers();
 
         if (Object.HasStateAuthority)
         {
@@ -104,11 +67,81 @@ public class PHealth : NetworkBehaviour
         }
 
         UpdateBodyState();
+
+        Debug.Log(
+            $"PHEALTH READY | " +
+            $"PLAYER: {Object.InputAuthority.PlayerId} | " +
+            $"STATE AUTHORITY: {Object.HasStateAuthority} | " +
+            $"INPUT AUTHORITY: {Object.HasInputAuthority} | " +
+            $"HEALTH: {Health} | " +
+            $"DEAD: {IsDead}"
+        );
     }
 
-    // ============================
-    // DAMAGE
-    // ============================
+
+    private void CacheReferences()
+    {
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (teamSpawnManager == null)
+        {
+            teamSpawnManager =
+                FindFirstObjectByType<
+                    TeamSpawnManager
+                >();
+        }
+
+        if (team == null)
+        {
+            team =
+                GetComponent<PTeam>();
+        }
+
+        if (networkTransform == null)
+        {
+            networkTransform =
+                GetComponent<NetworkTransform>();
+        }
+
+        if (weaponInventory == null)
+        {
+            weaponInventory =
+                GetComponent<PWeaponInventory>();
+        }
+
+        if (pistolShooting == null)
+        {
+            pistolShooting =
+                GetComponent<PShooting>();
+        }
+    }
+
+
+    private void CacheBodyRenderers()
+    {
+        if (bodyObject == null)
+        {
+            bodyRenderers =
+                null;
+
+            return;
+        }
+
+        bodyRenderers =
+            bodyObject
+                .GetComponentsInChildren<
+                    Renderer
+                >(
+                    true
+                );
+    }
+
 
     [Rpc(
         RpcSources.All,
@@ -118,35 +151,39 @@ public class PHealth : NetworkBehaviour
         int damage,
         NetworkObject attacker)
     {
-        if (IsDead)
+        if (!Object.HasStateAuthority)
             return;
+
+        Debug.Log(
+            $"DAMAGE REQUEST | " +
+            $"Victim: {Object.InputAuthority.PlayerId} | " +
+            $"Damage: {damage} | " +
+            $"Health before: {Health} | " +
+            $"IsDead: {IsDead}"
+        );
+
+        if (IsDead)
+        {
+            Debug.Log(
+                $"DAMAGE IGNORED - PLAYER DEAD | " +
+                $"Victim: " +
+                $"{Object.InputAuthority.PlayerId}"
+            );
+
+            return;
+        }
 
         if (damage <= 0)
             return;
 
-        // ============================
-        // FRIENDLY FIRE CHECK
-        // ============================
+        CacheReferences();
+
 
         if (attacker != null &&
             attacker != Object)
         {
             PTeam attackerTeam =
                 attacker.GetComponent<PTeam>();
-
-            if (team == null)
-            {
-                team =
-                    GetComponent<PTeam>();
-            }
-
-            if (gameManager == null)
-            {
-                gameManager =
-                    FindFirstObjectByType<
-                        NetworkGameManager
-                    >();
-            }
 
             if (attackerTeam != null &&
                 team != null &&
@@ -157,7 +194,8 @@ public class PHealth : NetworkBehaviour
                     team.CurrentTeam;
 
                 if (sameTeam &&
-                    !gameManager.FriendlyFireEnabled)
+                    !gameManager
+                        .FriendlyFireEnabled)
                 {
                     Debug.Log(
                         $"FRIENDLY FIRE BLOCKED | " +
@@ -173,23 +211,22 @@ public class PHealth : NetworkBehaviour
             }
         }
 
-        // ============================
-        // APPLY DAMAGE
-        // ============================
 
         Health -=
             damage;
 
-        if (Health < 0)
-        {
-            Health =
-                0;
-        }
+        Health =
+            Mathf.Max(
+                Health,
+                0
+            );
 
         Debug.Log(
-            $"PLAYER {Object.InputAuthority.PlayerId} DAMAGE | " +
+            $"PLAYER " +
+            $"{Object.InputAuthority.PlayerId} DAMAGE | " +
             $"Damage: {damage} | " +
-            $"Health: {Health}/{maxHealth}"
+            $"Health: {Health}/{maxHealth} | " +
+            $"Dead: {IsDead}"
         );
 
         if (Health <= 0)
@@ -200,13 +237,13 @@ public class PHealth : NetworkBehaviour
         }
     }
 
-    // ============================
-    // DEATH
-    // ============================
 
     private void Die(
         NetworkObject attacker)
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         if (IsDead)
             return;
 
@@ -217,59 +254,38 @@ public class PHealth : NetworkBehaviour
             0;
 
         Debug.Log(
-            $"PLAYER {Object.InputAuthority.PlayerId} DIED"
+            $"PLAYER " +
+            $"{Object.InputAuthority.PlayerId} DIED"
         );
 
-        // ============================
-        // GIVE KILL
-        // ============================
 
-        if (attacker != null)
+        if (attacker != null &&
+            attacker != Object)
         {
             PHealth attackerHealth =
                 attacker.GetComponent<PHealth>();
 
-            if (attackerHealth != null &&
-                attackerHealth != this)
+            if (attackerHealth != null)
             {
-                attackerHealth.RPC_AddKill();
+                attackerHealth
+                    .AddKillAuthoritative();
             }
         }
 
-        // ============================
-        // DISABLE PLAYER
-        // ============================
-
-        SetControls(
-            false
-        );
 
         UpdateBodyState();
 
-        // ============================
-        // MOVE WHILE DEAD
-        // ============================
 
         MoveDeadPlayerToSpawn();
 
-        // ============================
-        // WAIT FOR RESPAWN
-        // ============================
 
         StartCoroutine(
             RespawnCoroutine()
         );
     }
 
-    // ============================
-    // ADD KILL
-    // ============================
 
-    [Rpc(
-        RpcSources.All,
-        RpcTargets.StateAuthority
-    )]
-    private void RPC_AddKill()
+    private void AddKillAuthoritative()
     {
         if (!Object.HasStateAuthority)
             return;
@@ -277,7 +293,8 @@ public class PHealth : NetworkBehaviour
         Kills++;
 
         Debug.Log(
-            $"PLAYER {Object.InputAuthority.PlayerId} KILL | " +
+            $"PLAYER " +
+            $"{Object.InputAuthority.PlayerId} KILL | " +
             $"TOTAL: {Kills}"
         );
 
@@ -297,33 +314,19 @@ public class PHealth : NetworkBehaviour
         }
     }
 
-    // ============================
-    // MOVE DEAD PLAYER TO SPAWN
-    // ============================
 
     private void MoveDeadPlayerToSpawn()
     {
         if (!Object.HasStateAuthority)
             return;
 
-        if (teamSpawnManager == null)
-        {
-            teamSpawnManager =
-                FindFirstObjectByType<
-                    TeamSpawnManager
-                >();
-        }
-
-        if (team == null)
-        {
-            team =
-                GetComponent<PTeam>();
-        }
+        CacheReferences();
 
         if (teamSpawnManager == null)
         {
             Debug.LogError(
-                "PHEALTH: TeamSpawnManager not found."
+                "PHEALTH: " +
+                "TeamSpawnManager not found."
             );
 
             return;
@@ -348,7 +351,8 @@ public class PHealth : NetworkBehaviour
         {
             Debug.LogError(
                 $"PHEALTH: No respawn found | " +
-                $"Player: {Object.InputAuthority.PlayerId} | " +
+                $"Player: " +
+                $"{Object.InputAuthority.PlayerId} | " +
                 $"Team: {team.CurrentTeam}"
             );
 
@@ -360,16 +364,14 @@ public class PHealth : NetworkBehaviour
         );
 
         Debug.Log(
-            $"PLAYER {Object.InputAuthority.PlayerId} " +
+            $"PLAYER " +
+            $"{Object.InputAuthority.PlayerId} " +
             $"MOVED TO RESPAWN WHILE DEAD | " +
             $"TEAM: {team.CurrentTeam} | " +
             $"SPAWN: {spawnPoint.name}"
         );
     }
 
-    // ============================
-    // RESPAWN TIMER
-    // ============================
 
     private IEnumerator RespawnCoroutine()
     {
@@ -378,8 +380,15 @@ public class PHealth : NetworkBehaviour
                 respawnDelay
             );
 
+        if (Object == null)
+            yield break;
+
+        if (!Object.IsValid)
+            yield break;
+
         if (!Object.HasStateAuthority)
             yield break;
+
 
         Health =
             maxHealth;
@@ -387,29 +396,34 @@ public class PHealth : NetworkBehaviour
         IsDead =
             false;
 
-        SetControls(
-            true
-        );
-
         UpdateBodyState();
 
         Debug.Log(
-            $"PLAYER {Object.InputAuthority.PlayerId} RESPAWNED | " +
-            $"TEAM: {team.CurrentTeam}"
+            $"PLAYER " +
+            $"{Object.InputAuthority.PlayerId} RESPAWNED | " +
+            $"Health: {Health}/{maxHealth} | " +
+            $"IsDead: {IsDead}"
         );
     }
 
-    // ============================
-    // MOVE TO SPAWN
-    // ============================
 
     private void MoveToSpawn(
         Transform spawnPoint)
     {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (spawnPoint == null)
+            return;
+
         CharacterController controller =
             GetComponent<CharacterController>();
 
-        if (controller != null)
+        bool controllerWasEnabled =
+            controller != null &&
+            controller.enabled;
+
+        if (controllerWasEnabled)
         {
             controller.enabled =
                 false;
@@ -441,6 +455,13 @@ public class PHealth : NetworkBehaviour
             }
         }
 
+
+        transform.SetPositionAndRotation(
+            spawnPoint.position,
+            rotation
+        );
+
+
         if (networkTransform == null)
         {
             networkTransform =
@@ -454,73 +475,67 @@ public class PHealth : NetworkBehaviour
                 rotation
             );
         }
-        else
-        {
-            transform.position =
-                spawnPoint.position;
 
-            transform.rotation =
-                rotation;
-        }
 
-        if (controller != null)
+        if (controllerWasEnabled)
         {
             controller.enabled =
                 true;
         }
 
-        if (look != null)
+
+        PLook look =
+            GetComponent<PLook>();
+
+        if (look != null &&
+            Object.HasInputAuthority)
         {
             look.SyncHorizontalRotation();
         }
     }
 
-    // ============================
-    // CONTROLS
-    // ============================
-
-    private void SetControls(
-        bool state)
-    {
-        if (movement != null)
-        {
-            movement.enabled =
-                state;
-        }
-
-        if (look != null)
-        {
-            look.enabled =
-                state;
-        }
-    }
-
-    // ============================
-    // BODY
-    // ============================
 
     private void UpdateBodyState()
     {
-        if (bodyObject != null)
+        if (bodyObject == null)
+            return;
+
+        if (bodyRenderers == null ||
+            bodyRenderers.Length == 0)
         {
-            bodyObject.SetActive(
-                !IsDead
-            );
+            CacheBodyRenderers();
+        }
+
+        bool shouldBeVisible =
+            !IsDead;
+
+        if (bodyRenderers == null)
+            return;
+
+        foreach (
+            Renderer bodyRenderer
+            in bodyRenderers)
+        {
+            if (bodyRenderer == null)
+                continue;
+
+            if (bodyRenderer.enabled ==
+                shouldBeVisible)
+            {
+                continue;
+            }
+
+            bodyRenderer.enabled =
+                shouldBeVisible;
         }
     }
 
-    // ============================
-    // RENDER
-    // ============================
 
     public override void Render()
     {
         UpdateBodyState();
     }
 
-    // ============================
-    // RESET PLAYER
-    // ============================
 
     [Rpc(
         RpcSources.All,
@@ -533,31 +548,8 @@ public class PHealth : NetworkBehaviour
 
         StopAllCoroutines();
 
-        if (teamSpawnManager == null)
-        {
-            teamSpawnManager =
-                FindFirstObjectByType<
-                    TeamSpawnManager
-                >();
-        }
+        CacheReferences();
 
-        if (team == null)
-        {
-            team =
-                GetComponent<PTeam>();
-        }
-
-        if (weaponInventory == null)
-        {
-            weaponInventory =
-                GetComponent<PWeaponInventory>();
-        }
-
-        if (pistolShooting == null)
-        {
-            pistolShooting =
-                GetComponent<PShooting>();
-        }
 
         Health =
             maxHealth;
@@ -568,29 +560,22 @@ public class PHealth : NetworkBehaviour
         IsDead =
             true;
 
-        // ============================
-        // RESET INVENTORY
-        // ============================
+        UpdateBodyState();
+
 
         if (weaponInventory != null)
         {
-            weaponInventory.ResetInventory();
+            weaponInventory
+                .ResetInventory();
         }
 
-        // ============================
-        // RESET PISTOL
-        // ============================
 
         if (pistolShooting != null)
         {
-            pistolShooting.ResetPistolAmmo();
+            pistolShooting
+                .ResetPistolAmmo();
         }
 
-        UpdateBodyState();
-
-        // ============================
-        // RESET POSITION
-        // ============================
 
         if (teamSpawnManager != null &&
             team != null)
@@ -609,17 +594,20 @@ public class PHealth : NetworkBehaviour
             }
         }
 
+
+        Health =
+            maxHealth;
+
         IsDead =
             false;
-
-        SetControls(
-            true
-        );
 
         UpdateBodyState();
 
         Debug.Log(
-            $"PLAYER {Object.InputAuthority.PlayerId} RESET"
+            $"PLAYER " +
+            $"{Object.InputAuthority.PlayerId} RESET | " +
+            $"Health: {Health} | " +
+            $"IsDead: {IsDead}"
         );
     }
 }

@@ -6,18 +6,12 @@ using UnityEngine.UI;
 
 public class GameHUD : MonoBehaviour
 {
-    // ============================
-    // SCORE
-    // ============================
-
+   
     [Header("Score")]
     [SerializeField]
     private TMP_Text scoreText;
 
-    // ============================
-    // HEALTH
-    // ============================
-
+    
     [Header("Health")]
     [SerializeField]
     private Image healthBar;
@@ -25,9 +19,6 @@ public class GameHUD : MonoBehaviour
     [SerializeField]
     private TMP_Text healthText;
 
-    // ============================
-    // WEAPON HUD
-    // ============================
 
     [Header("Weapon")]
     [SerializeField]
@@ -39,9 +30,6 @@ public class GameHUD : MonoBehaviour
     [SerializeField]
     private TMP_Text weaponStatusText;
 
-    // ============================
-    // MATCH UI
-    // ============================
 
     [Header("Match")]
     [SerializeField]
@@ -56,60 +44,62 @@ public class GameHUD : MonoBehaviour
     [SerializeField]
     private Button restartButton;
 
-    // ============================
-    // REFERENCES
-    // ============================
 
     [Header("References")]
     [SerializeField]
     private NetworkGameManager gameManager;
 
-    // ============================
-    // LOCAL PLAYER
-    // ============================
 
     private NetworkObject localPlayerObject;
 
     private PHealth localHealth;
+
     private PTeam localTeam;
+
     private PWeaponInventory weaponInventory;
 
-    // ============================
-    // WEAPON COMPONENTS
-    // ============================
 
     private MonoBehaviour pistolScript;
+
     private MonoBehaviour shotgunScript;
+
     private MonoBehaviour assaultRifleScript;
+
     private MonoBehaviour sniperScript;
+
     private MonoBehaviour rocketLauncherScript;
+
     private MonoBehaviour grenadeScript;
 
-    // ============================
-    // RUNTIME
-    // ============================
 
     private bool resultShown;
+
     private bool localPlayerFound;
 
-    // ============================
-    // START
-    // ============================
 
     private void Start()
     {
+        resultShown =
+            false;
+
+        localPlayerFound =
+            false;
+
         HideEndGameUI();
 
         if (waitingText != null)
         {
-            waitingText.gameObject.SetActive(
-                true
-            );
+            waitingText
+                .gameObject
+                .SetActive(
+                    true
+                );
         }
 
         if (weaponStatusText != null)
         {
-            weaponStatusText.text = "";
+            weaponStatusText.text =
+                "";
         }
 
         Cursor.lockState =
@@ -119,12 +109,10 @@ public class GameHUD : MonoBehaviour
             false;
     }
 
-    // ============================
-    // UPDATE
-    // ============================
 
     private void Update()
     {
+
         FindGameManager();
 
         if (gameManager == null)
@@ -133,27 +121,41 @@ public class GameHUD : MonoBehaviour
         if (!gameManager.IsReady)
             return;
 
+
+        ValidateLocalPlayer();
+
         FindLocalPlayer();
 
+
         UpdateScore();
+
         UpdateWaitingUI();
+
 
         if (!localPlayerFound)
             return;
 
         UpdateHealth();
+
         UpdateWeaponHUD();
+
         UpdateMatchResult();
     }
 
-    // ============================
-    // FIND GAME MANAGER
-    // ============================
 
     private void FindGameManager()
     {
         if (gameManager != null)
-            return;
+        {
+            if (gameManager.Object != null &&
+                gameManager.Object.IsValid)
+            {
+                return;
+            }
+
+            gameManager =
+                null;
+        }
 
         gameManager =
             FindFirstObjectByType<
@@ -161,24 +163,84 @@ public class GameHUD : MonoBehaviour
             >();
     }
 
-    // ============================
-    // FIND LOCAL PLAYER
-    // ============================
+
+    private void ValidateLocalPlayer()
+    {
+        if (!localPlayerFound)
+            return;
+
+        if (localPlayerObject == null)
+        {
+            ClearLocalPlayer();
+
+            return;
+        }
+
+        if (!localPlayerObject.IsValid)
+        {
+            ClearLocalPlayer();
+
+            return;
+        }
+
+        if (!localPlayerObject
+            .HasInputAuthority)
+        {
+            ClearLocalPlayer();
+        }
+    }
+
+
+    private void ClearLocalPlayer()
+    {
+        localPlayerFound =
+            false;
+
+        localPlayerObject =
+            null;
+
+        localHealth =
+            null;
+
+        localTeam =
+            null;
+
+        weaponInventory =
+            null;
+
+        pistolScript =
+            null;
+
+        shotgunScript =
+            null;
+
+        assaultRifleScript =
+            null;
+
+        sniperScript =
+            null;
+
+        rocketLauncherScript =
+            null;
+
+        grenadeScript =
+            null;
+    }
+
 
     private void FindLocalPlayer()
     {
-        if (localPlayerFound &&
-            localPlayerObject != null)
-        {
+        if (localPlayerFound)
             return;
-        }
 
         PHealth[] players =
             FindObjectsByType<PHealth>(
                 FindObjectsSortMode.None
             );
 
-        foreach (PHealth health in players)
+        foreach (
+            PHealth health
+            in players)
         {
             if (health == null)
                 continue;
@@ -194,8 +256,12 @@ public class GameHUD : MonoBehaviour
             if (!networkObject.IsValid)
                 continue;
 
-            if (!networkObject.HasInputAuthority)
+
+            if (!networkObject
+                .HasInputAuthority)
+            {
                 continue;
+            }
 
             localPlayerObject =
                 networkObject;
@@ -204,14 +270,16 @@ public class GameHUD : MonoBehaviour
                 health;
 
             localTeam =
-                networkObject.GetComponent<
-                    PTeam
-                >();
+                networkObject
+                    .GetComponent<
+                        PTeam
+                    >();
 
             weaponInventory =
-                networkObject.GetComponent<
-                    PWeaponInventory
-                >();
+                networkObject
+                    .GetComponent<
+                        PWeaponInventory
+                    >();
 
             CacheWeaponScripts(
                 networkObject.gameObject
@@ -220,29 +288,43 @@ public class GameHUD : MonoBehaviour
             localPlayerFound =
                 true;
 
+            Debug.Log(
+                $"HUD LOCAL PLAYER FOUND | " +
+                $"Player: " +
+                $"{networkObject.InputAuthority.PlayerId} | " +
+                $"StateAuthority: " +
+                $"{networkObject.HasStateAuthority} | " +
+                $"InputAuthority: " +
+                $"{networkObject.HasInputAuthority}"
+            );
+
             return;
         }
     }
 
-    // ============================
-    // CACHE WEAPON SCRIPTS
-    // ============================
 
     private void CacheWeaponScripts(
         GameObject player)
     {
+        if (player == null)
+            return;
+
         MonoBehaviour[] scripts =
             player.GetComponents<
                 MonoBehaviour
             >();
 
-        foreach (MonoBehaviour script in scripts)
+        foreach (
+            MonoBehaviour script
+            in scripts)
         {
             if (script == null)
                 continue;
 
             string typeName =
-                script.GetType().Name;
+                script
+                    .GetType()
+                    .Name;
 
             switch (typeName)
             {
@@ -291,13 +373,13 @@ public class GameHUD : MonoBehaviour
         }
     }
 
-    // ============================
-    // SCORE
-    // ============================
 
     private void UpdateScore()
     {
         if (scoreText == null)
+            return;
+
+        if (gameManager == null)
             return;
 
         scoreText.text =
@@ -305,22 +387,24 @@ public class GameHUD : MonoBehaviour
             $"BLUE: {gameManager.BlueScore}";
     }
 
-    // ============================
-    // WAITING
-    // ============================
 
     private void UpdateWaitingUI()
     {
         if (waitingText == null)
             return;
 
+        if (gameManager == null)
+            return;
+
         bool waiting =
             !gameManager.MatchStarted &&
             !gameManager.GameOver;
 
-        waitingText.gameObject.SetActive(
-            waiting
-        );
+        waitingText
+            .gameObject
+            .SetActive(
+                waiting
+            );
 
         if (waiting)
         {
@@ -329,21 +413,34 @@ public class GameHUD : MonoBehaviour
         }
     }
 
-    // ============================
-    // HEALTH
-    // ============================
 
     private void UpdateHealth()
     {
         if (localHealth == null)
             return;
 
+        if (localHealth.Object == null)
+            return;
+
+        if (!localHealth.Object.IsValid)
+            return;
+
+
         if (healthBar != null)
         {
+            float maxHealth =
+                Mathf.Max(
+                    localHealth.MaxHealth,
+                    1
+                );
+
             healthBar.fillAmount =
-                (float)localHealth.Health /
-                localHealth.MaxHealth;
+                Mathf.Clamp01(
+                    localHealth.Health /
+                    maxHealth
+                );
         }
+
 
         if (healthText != null)
         {
@@ -353,14 +450,18 @@ public class GameHUD : MonoBehaviour
         }
     }
 
-    // ============================
-    // WEAPON HUD
-    // ============================
 
     private void UpdateWeaponHUD()
     {
         if (weaponInventory == null)
             return;
+
+        if (weaponInventory.Object == null)
+            return;
+
+        if (!weaponInventory.Object.IsValid)
+            return;
+
 
         if (weaponText != null)
         {
@@ -369,23 +470,26 @@ public class GameHUD : MonoBehaviour
                     .CurrentWeaponName;
         }
 
+
         UpdateAmmoText();
+
+
         UpdateReloadText();
     }
 
-    // ============================
-    // AMMO
-    // ============================
 
     private void UpdateAmmoText()
     {
         if (ammoText == null)
             return;
 
+        if (weaponInventory == null)
+            return;
+
         switch (
-            weaponInventory.CurrentWeapon
-        )
+            weaponInventory.CurrentWeapon)
         {
+
             case PWeaponInventory
                 .WeaponType
                 .Pistol:
@@ -400,7 +504,7 @@ public class GameHUD : MonoBehaviour
                 int pistolMagazine =
                     GetIntValue(
                         pistolScript,
-                        "MagSize",
+                        "MagazineSize",
                         6
                     );
 
@@ -409,6 +513,7 @@ public class GameHUD : MonoBehaviour
                     $"{pistolMagazine}";
 
                 break;
+
 
             case PWeaponInventory
                 .WeaponType
@@ -420,6 +525,7 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
+
             case PWeaponInventory
                 .WeaponType
                 .AssaultRifle:
@@ -429,6 +535,7 @@ public class GameHUD : MonoBehaviour
                     $"{weaponInventory.AssaultRifleReserve}";
 
                 break;
+
 
             case PWeaponInventory
                 .WeaponType
@@ -440,6 +547,7 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
+
             case PWeaponInventory
                 .WeaponType
                 .RocketLauncher:
@@ -449,6 +557,7 @@ public class GameHUD : MonoBehaviour
                     $"{weaponInventory.RocketLauncherReserve}";
 
                 break;
+
 
             case PWeaponInventory
                 .WeaponType
@@ -462,21 +571,22 @@ public class GameHUD : MonoBehaviour
         }
     }
 
-    // ============================
-    // RELOAD STATUS
-    // ============================
 
     private void UpdateReloadText()
     {
         if (weaponStatusText == null)
             return;
 
-        bool reloading = false;
+        if (weaponInventory == null)
+            return;
+
+        bool reloading =
+            false;
 
         switch (
-            weaponInventory.CurrentWeapon
-        )
+            weaponInventory.CurrentWeapon)
         {
+
             case PWeaponInventory
                 .WeaponType
                 .Pistol:
@@ -488,6 +598,7 @@ public class GameHUD : MonoBehaviour
                     );
 
                 break;
+
 
             case PWeaponInventory
                 .WeaponType
@@ -501,6 +612,7 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
+
             case PWeaponInventory
                 .WeaponType
                 .AssaultRifle:
@@ -512,6 +624,7 @@ public class GameHUD : MonoBehaviour
                     );
 
                 break;
+
 
             case PWeaponInventory
                 .WeaponType
@@ -525,6 +638,7 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
+
             case PWeaponInventory
                 .WeaponType
                 .RocketLauncher:
@@ -536,6 +650,7 @@ public class GameHUD : MonoBehaviour
                     );
 
                 break;
+
 
             case PWeaponInventory
                 .WeaponType
@@ -556,12 +671,13 @@ public class GameHUD : MonoBehaviour
                 : "";
     }
 
-    // ============================
-    // MATCH RESULT
-    // ============================
 
     private void UpdateMatchResult()
     {
+        if (gameManager == null)
+            return;
+
+
         if (!gameManager.GameOver)
         {
             if (resultShown)
@@ -581,6 +697,7 @@ public class GameHUD : MonoBehaviour
             return;
         }
 
+
         if (resultShown)
             return;
 
@@ -589,6 +706,13 @@ public class GameHUD : MonoBehaviour
 
         if (localTeam == null)
             return;
+
+        if (localTeam.Object == null)
+            return;
+
+        if (!localTeam.Object.IsValid)
+            return;
+
 
         bool localTeamWon =
             localTeam.CurrentTeam ==
@@ -613,9 +737,37 @@ public class GameHUD : MonoBehaviour
             true;
     }
 
-    // ============================
-    // VICTORY
-    // ============================
+
+    private void UpdateRestartButtonVisibility()
+    {
+        if (restartButton == null)
+            return;
+
+        bool canRestart =
+            gameManager != null &&
+            gameManager.IsReady &&
+            gameManager.CanLocalRestart;
+
+        restartButton
+            .gameObject
+            .SetActive(
+                canRestart
+            );
+
+        if (canRestart)
+        {
+            Debug.Log(
+                "HUD: RESTART BUTTON VISIBLE | HOST"
+            );
+        }
+        else
+        {
+            Debug.Log(
+                "HUD: RESTART BUTTON HIDDEN | CLIENT"
+            );
+        }
+    }
+
 
     private void ShowVictory()
     {
@@ -624,37 +776,36 @@ public class GameHUD : MonoBehaviour
             victoryText.text =
                 "VICTORY";
 
-            victoryText.gameObject.SetActive(
-                true
-            );
+            victoryText
+                .gameObject
+                .SetActive(
+                    true
+                );
         }
 
         if (defeatText != null)
         {
-            defeatText.gameObject.SetActive(
-                false
-            );
+            defeatText
+                .gameObject
+                .SetActive(
+                    false
+                );
         }
 
-        if (restartButton != null)
-        {
-            restartButton.gameObject.SetActive(
-                true
-            );
-        }
+        // Only Host sees Restart.
+        UpdateRestartButtonVisibility();
     }
 
-    // ============================
-    // DEFEAT
-    // ============================
 
     private void ShowDefeat()
     {
         if (victoryText != null)
         {
-            victoryText.gameObject.SetActive(
-                false
-            );
+            victoryText
+                .gameObject
+                .SetActive(
+                    false
+                );
         }
 
         if (defeatText != null)
@@ -662,54 +813,54 @@ public class GameHUD : MonoBehaviour
             defeatText.text =
                 "DEFEAT";
 
-            defeatText.gameObject.SetActive(
-                true
-            );
+            defeatText
+                .gameObject
+                .SetActive(
+                    true
+                );
         }
 
-        if (restartButton != null)
-        {
-            restartButton.gameObject.SetActive(
-                true
-            );
-        }
+        // Only Host sees Restart.
+        UpdateRestartButtonVisibility();
     }
 
-    // ============================
-    // HIDE END GAME
-    // ============================
 
     public void HideEndGameUI()
     {
         if (victoryText != null)
         {
-            victoryText.gameObject.SetActive(
-                false
-            );
+            victoryText
+                .gameObject
+                .SetActive(
+                    false
+                );
         }
 
         if (defeatText != null)
         {
-            defeatText.gameObject.SetActive(
-                false
-            );
+            defeatText
+                .gameObject
+                .SetActive(
+                    false
+                );
         }
 
         if (restartButton != null)
         {
-            restartButton.gameObject.SetActive(
-                false
-            );
+            restartButton
+                .gameObject
+                .SetActive(
+                    false
+                );
         }
     }
 
-    // ============================
-    // RESTART
-    // ============================
 
     public void RestartMatch()
     {
-        Debug.Log("HUD: RESTART BUTTON PRESSED");
+        Debug.Log(
+            "HUD: RESTART BUTTON PRESSED"
+        );
 
         if (gameManager == null)
         {
@@ -729,16 +880,24 @@ public class GameHUD : MonoBehaviour
             return;
         }
 
+
+        if (!gameManager.CanLocalRestart)
+        {
+            Debug.LogWarning(
+                "HUD: RESTART BLOCKED | " +
+                "THIS CLIENT IS NOT HOST"
+            );
+
+            return;
+        }
+
         Debug.Log(
-            "HUD: ENVIANDO REQUEST RESTART"
+            "HUD: HOST REQUESTING RESTART"
         );
 
         gameManager.RequestRestart();
     }
 
-    // ============================
-    // REFLECTION HELPERS
-    // ============================
 
     private int GetIntValue(
         MonoBehaviour component,
@@ -798,6 +957,7 @@ public class GameHUD : MonoBehaviour
 
         return defaultValue;
     }
+
 
     private bool GetBoolValue(
         MonoBehaviour component,

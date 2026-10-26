@@ -3,15 +3,24 @@ using UnityEngine;
 
 public class AssaultRiflePickup : NetworkBehaviour
 {
+
     [Header("Pickup")]
-    [SerializeField] private int assaultRifleAmmoAmount = 30;
+    [SerializeField]
+    private int assaultRifleAmmoAmount = 30;
+
 
     [Header("Respawn")]
-    [SerializeField] private float respawnTime = 10f;
+    [SerializeField]
+    private float respawnTime = 10f;
+
 
     [Header("Referencias")]
-    [SerializeField] private GameObject visualObject;
-    [SerializeField] private Collider pickupCollider;
+    [SerializeField]
+    private GameObject visualObject;
+
+    [SerializeField]
+    private Collider pickupCollider;
+
 
     [Networked]
     private NetworkBool IsAvailable { get; set; }
@@ -19,94 +28,168 @@ public class AssaultRiflePickup : NetworkBehaviour
     [Networked]
     private TickTimer RespawnTimer { get; set; }
 
+
     public override void Spawned()
     {
         if (Object.HasStateAuthority)
         {
-            IsAvailable = true;
-            RespawnTimer = TickTimer.None;
+            IsAvailable =
+                true;
+
+            RespawnTimer =
+                TickTimer.None;
         }
 
         UpdateVisualState();
+
+        Debug.Log(
+            $"ASSAULT RIFLE PICKUP READY | " +
+            $"STATE AUTHORITY: " +
+            $"{Object.HasStateAuthority}"
+        );
     }
 
-    private void OnTriggerEnter(Collider other)
+
+    private void OnTriggerEnter(
+        Collider other)
     {
-        Debug.Log(
-            $"ASSAULT RIFLE TRIGGER detectó: {other.name}"
-        );
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
+        if (!Object.HasStateAuthority)
+            return;
+
+
+        if (!IsAvailable)
+            return;
+
 
         PWeaponInventory inventory =
-            other.GetComponentInParent<PWeaponInventory>();
+            other
+                .GetComponentInParent<
+                    PWeaponInventory
+                >();
 
         if (inventory == null)
             return;
 
-        if (!inventory.Object.HasStateAuthority)
+        if (inventory.Object == null)
             return;
 
-        if (!IsAvailable)
+        if (!inventory.Object.IsValid)
             return;
+
+        if (!inventory.Object
+            .HasStateAuthority)
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"ASSAULT RIFLE PICKUP DETECTED | " +
+            $"Player: " +
+            $"{inventory.Object.InputAuthority.PlayerId}"
+        );
+
 
         inventory.AddAssaultRifle(
             assaultRifleAmmoAmount
         );
 
-        RPC_RequestPickup();
+
+        ConsumePickup();
     }
 
-    [Rpc(
-        RpcSources.All,
-        RpcTargets.StateAuthority
-    )]
-    private void RPC_RequestPickup()
+
+    private void ConsumePickup()
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         if (!IsAvailable)
             return;
 
-        IsAvailable = false;
+        IsAvailable =
+            false;
 
         RespawnTimer =
             TickTimer.CreateFromSeconds(
                 Runner,
                 respawnTime
             );
+
+        Debug.Log(
+            $"ASSAULT RIFLE PICKUP CONSUMED | " +
+            $"RESPAWN IN: {respawnTime} SECONDS"
+        );
     }
+
 
     public override void FixedUpdateNetwork()
     {
         if (!Object.HasStateAuthority)
             return;
 
-        if (!IsAvailable &&
-            RespawnTimer.Expired(Runner))
+        if (IsAvailable)
+            return;
+
+        if (!RespawnTimer.IsRunning)
+            return;
+
+        if (!RespawnTimer.Expired(
+            Runner))
         {
-            IsAvailable = true;
-            RespawnTimer = TickTimer.None;
+            return;
         }
+
+        IsAvailable =
+            true;
+
+        RespawnTimer =
+            TickTimer.None;
+
+        Debug.Log(
+            "ASSAULT RIFLE PICKUP RESPAWNED"
+        );
     }
+
 
     public override void Render()
     {
         UpdateVisualState();
     }
 
+
     private void UpdateVisualState()
     {
         bool available =
             IsAvailable;
 
+
         if (visualObject != null)
         {
-            visualObject.SetActive(
-                available
-            );
+            if (visualObject.activeSelf !=
+                available)
+            {
+                visualObject.SetActive(
+                    available
+                );
+            }
         }
+
 
         if (pickupCollider != null)
         {
-            pickupCollider.enabled =
-                available;
+            if (pickupCollider.enabled !=
+                available)
+            {
+                pickupCollider.enabled =
+                    available;
+            }
         }
     }
 }

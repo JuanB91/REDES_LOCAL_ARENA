@@ -2022,6 +2022,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   killsToWin: 5
+  matchStartDelay: 3
   defaultFriendlyFire: 0
   _MatchStarted:
     RawValue: 0

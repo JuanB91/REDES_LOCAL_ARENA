@@ -3,15 +3,13 @@ using UnityEngine;
 
 public class PTeam : NetworkBehaviour
 {
+
     public enum Team
     {
         Red = 0,
         Blue = 1
     }
 
-    // ============================
-    // NETWORK DATA
-    // ============================
 
     [Networked]
     public Team CurrentTeam { get; set; }
@@ -19,28 +17,43 @@ public class PTeam : NetworkBehaviour
     [Networked]
     public int TeamIndex { get; set; }
 
-    // ============================
-    // SPAWNED
-    // ============================
 
     public override void Spawned()
     {
         if (!Object.HasStateAuthority)
-            return;
+        {
+            Debug.Log(
+                $"PTEAM READY | CLIENT COPY | " +
+                $"Player: {Object.InputAuthority.PlayerId}"
+            );
 
-        AssignTeam();
+            return;
+        }
+
+        AssignTeamAuthoritative();
     }
 
-    // ============================
-    // ASSIGN TEAM
-    // ============================
 
-    private void AssignTeam()
+    private void AssignTeamAuthoritative()
     {
-        int playerId =
-            Object.InputAuthority.PlayerId;
+        if (!Object.HasStateAuthority)
+            return;
 
-        // Odd PlayerIds go to RED.
+        PlayerRef player =
+            Object.InputAuthority;
+
+        if (player == PlayerRef.None)
+        {
+            Debug.LogError(
+                "PTEAM: Player has no InputAuthority."
+            );
+
+            return;
+        }
+
+        int playerId =
+            player.PlayerId;
+
         if (playerId % 2 != 0)
         {
             CurrentTeam =
@@ -50,7 +63,6 @@ public class PTeam : NetworkBehaviour
                 (playerId - 1) / 2;
         }
 
-        // Even PlayerIds go to BLUE.
         else
         {
             CurrentTeam =
@@ -61,25 +73,34 @@ public class PTeam : NetworkBehaviour
         }
 
         Debug.Log(
-            $"TEAM ASSIGNED | " +
+            $"TEAM ASSIGNED BY HOST | " +
             $"Player: {playerId} | " +
             $"Team: {CurrentTeam} | " +
             $"TeamIndex: {TeamIndex}"
         );
     }
 
-    // ============================
-    // HELPERS
-    // ============================
 
     public bool IsRed()
     {
+        if (Object == null)
+            return false;
+
+        if (!Object.IsValid)
+            return false;
+
         return CurrentTeam ==
                Team.Red;
     }
 
     public bool IsBlue()
     {
+        if (Object == null)
+            return false;
+
+        if (!Object.IsValid)
+            return false;
+
         return CurrentTeam ==
                Team.Blue;
     }

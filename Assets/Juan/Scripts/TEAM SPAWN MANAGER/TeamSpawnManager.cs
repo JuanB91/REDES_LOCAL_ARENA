@@ -2,33 +2,21 @@ using UnityEngine;
 
 public class TeamSpawnManager : MonoBehaviour
 {
-    // ============================
-    // RED SPAWNS
-    // ============================
-
+ 
     [Header("RED Spawns")]
     [SerializeField]
     private Transform[] redSpawnPoints;
 
-    // ============================
-    // BLUE SPAWNS
-    // ============================
-
+    
     [Header("BLUE Spawns")]
     [SerializeField]
     private Transform[] blueSpawnPoints;
 
-    // ============================
-    // LOOK TARGET
-    // ============================
 
     [Header("Look Target")]
     [SerializeField]
     private Transform lookTarget;
 
-    // ============================
-    // PUBLIC
-    // ============================
 
     public Transform LookTarget
     {
@@ -38,32 +26,27 @@ public class TeamSpawnManager : MonoBehaviour
         }
     }
 
-    // ============================
-    // GET SPAWN BY TEAM INDEX
-    // ============================
 
     public Transform GetSpawnPoint(
         PTeam.Team team,
         int teamIndex)
     {
         Transform[] spawnArray =
-            team == PTeam.Team.Red
-                ? redSpawnPoints
-                : blueSpawnPoints;
-
-        if (spawnArray == null ||
-            spawnArray.Length == 0)
-        {
-            Debug.LogError(
-                $"TEAM SPAWN MANAGER: " +
-                $"No hay spawns configurados para {team}"
+            GetSpawnArray(
+                team
             );
 
+        if (!ValidateSpawnArray(
+            spawnArray,
+            team))
+        {
             return null;
         }
 
         int index =
-            Mathf.Abs(teamIndex) %
+            Mathf.Abs(
+                teamIndex
+            ) %
             spawnArray.Length;
 
         Transform selectedSpawn =
@@ -85,32 +68,27 @@ public class TeamSpawnManager : MonoBehaviour
             $"TEAM SPAWN SELECTED | " +
             $"Team: {team} | " +
             $"TeamIndex: {teamIndex} | " +
-            $"Spawn: {selectedSpawn.name}"
+            $"ArrayIndex: {index} | " +
+            $"Spawn: {selectedSpawn.name} | " +
+            $"Position: {selectedSpawn.position}"
         );
 
         return selectedSpawn;
     }
 
-    // ============================
-    // GET RANDOM SPAWN
-    // ============================
 
     public Transform GetRandomSpawnPoint(
         PTeam.Team team)
     {
         Transform[] spawnArray =
-            team == PTeam.Team.Red
-                ? redSpawnPoints
-                : blueSpawnPoints;
-
-        if (spawnArray == null ||
-            spawnArray.Length == 0)
-        {
-            Debug.LogError(
-                $"TEAM SPAWN MANAGER: " +
-                $"No hay spawns configurados para {team}"
+            GetSpawnArray(
+                team
             );
 
+        if (!ValidateSpawnArray(
+            spawnArray,
+            team))
+        {
             return null;
         }
 
@@ -135,6 +113,55 @@ public class TeamSpawnManager : MonoBehaviour
             return null;
         }
 
+        Debug.Log(
+            $"RANDOM TEAM SPAWN SELECTED | " +
+            $"Team: {team} | " +
+            $"Index: {randomIndex} | " +
+            $"Spawn: {selectedSpawn.name} | " +
+            $"Position: {selectedSpawn.position}"
+        );
+
         return selectedSpawn;
+    }
+
+
+    private Transform[] GetSpawnArray(
+        PTeam.Team team)
+    {
+        if (team ==
+            PTeam.Team.Red)
+        {
+            return redSpawnPoints;
+        }
+
+        return blueSpawnPoints;
+    }
+
+
+    private bool ValidateSpawnArray(
+        Transform[] spawnArray,
+        PTeam.Team team)
+    {
+        if (spawnArray == null)
+        {
+            Debug.LogError(
+                $"TEAM SPAWN MANAGER: " +
+                $"Array de spawns NULL para {team}"
+            );
+
+            return false;
+        }
+
+        if (spawnArray.Length == 0)
+        {
+            Debug.LogError(
+                $"TEAM SPAWN MANAGER: " +
+                $"No hay spawns configurados para {team}"
+            );
+
+            return false;
+        }
+
+        return true;
     }
 }

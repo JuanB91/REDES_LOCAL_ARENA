@@ -6,10 +6,7 @@ using UnityEngine.UI;
 
 public class WaitingRoomManager : NetworkBehaviour
 {
-    // ============================
-    // CONFIG
-    // ============================
-
+    
     [Header("Countdown")]
     [SerializeField]
     private float countdownDuration = 30f;
@@ -17,10 +14,6 @@ public class WaitingRoomManager : NetworkBehaviour
     [Header("Arena Scene")]
     [SerializeField]
     private string arenaSceneName = "ARENA";
-
-    // ============================
-    // UI
-    // ============================
 
     [Header("UI")]
     [SerializeField]
@@ -40,10 +33,7 @@ public class WaitingRoomManager : NetworkBehaviour
     [SerializeField]
     private TMP_Text[] blueSlots;
 
-    // ============================
-    // NETWORK
-    // ============================
-
+    
     [Networked]
     public int RedPlayerCount { get; set; }
 
@@ -59,61 +49,81 @@ public class WaitingRoomManager : NetworkBehaviour
     [Networked]
     private NetworkBool SceneChangeStarted { get; set; }
 
+    
     [Networked]
     [Capacity(16)]
-    private NetworkDictionary<PlayerRef, NetworkString<_16>>
+    private NetworkDictionary<
+        PlayerRef,
+        NetworkString<_16>>
         PlayerNames => default;
 
-    // ============================
-    // LOCAL
-    // ============================
+    
+    private bool localNameSubmitted;
 
-    private bool localNameSubmitted = false;
-
-    // ============================
-    // SPAWNED
-    // ============================
 
     public override void Spawned()
     {
+        localNameSubmitted =
+            false;
+
+
         if (Object.HasStateAuthority)
         {
-            RedPlayerCount = 0;
-            BluePlayerCount = 0;
+            RedPlayerCount =
+                0;
 
-            CountdownStarted = false;
-            CountdownTimer = TickTimer.None;
+            BluePlayerCount =
+                0;
 
-            SceneChangeStarted = false;
+            CountdownStarted =
+                false;
+
+            CountdownTimer =
+                TickTimer.None;
+
+            SceneChangeStarted =
+                false;
+
+            Debug.Log(
+                "WAITING ROOM HOST INITIALIZED"
+            );
         }
-
-        localNameSubmitted = false;
 
         UpdateUI();
 
         Debug.Log(
             $"WAITING ROOM MANAGER READY | " +
-            $"SCENE AUTHORITY: {Runner.IsSceneAuthority}"
+            $"STATE AUTHORITY: " +
+            $"{Object.HasStateAuthority} | " +
+            $"SCENE AUTHORITY: " +
+            $"{Runner.IsSceneAuthority} | " +
+            $"LOCAL PLAYER: " +
+            $"{Runner.LocalPlayer.PlayerId}"
         );
     }
 
-    // ============================
-    // UNITY UPDATE
-    // ============================
 
     private void Update()
     {
-        // Cada cliente intenta enviar
-        // SU propio nombre.
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
+        if (Runner == null)
+            return;
+
+        if (!Runner.IsRunning)
+            return;
+
         SubmitLocalPlayerName();
     }
 
-    // ============================
-    // NETWORK UPDATE
-    // ============================
 
     public override void FixedUpdateNetwork()
     {
+
         if (!Object.HasStateAuthority)
             return;
 
@@ -122,9 +132,6 @@ public class WaitingRoomManager : NetworkBehaviour
         UpdateCountdown();
     }
 
-    // ============================
-    // SUBMIT LOCAL NAME
-    // ============================
 
     private void SubmitLocalPlayerName()
     {
@@ -134,20 +141,30 @@ public class WaitingRoomManager : NetworkBehaviour
         if (Runner == null)
             return;
 
-        if (Object == null ||
-            !Object.IsValid)
+        if (!Runner.IsRunning)
+            return;
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
             return;
 
         PlayerRef localPlayer =
             Runner.LocalPlayer;
 
-        if (localPlayer == PlayerRef.None)
+        if (localPlayer ==
+            PlayerRef.None)
+        {
             return;
+        }
+
 
         string playerName =
             PlayerProfile.PlayerName;
 
-        if (string.IsNullOrWhiteSpace(playerName))
+        if (string.IsNullOrWhiteSpace(
+            playerName))
         {
             playerName =
                 $"PLAYER {localPlayer.PlayerId}";
@@ -186,9 +203,6 @@ public class WaitingRoomManager : NetworkBehaviour
         );
     }
 
-    // ============================
-    // PLAYER NAME RPC
-    // ============================
 
     [Rpc(
         RpcSources.All,
@@ -201,21 +215,46 @@ public class WaitingRoomManager : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        if (player ==
+            PlayerRef.None)
+        {
+            return;
+        }
+
+        string validatedName =
+            playerName.Value;
+
+        if (string.IsNullOrWhiteSpace(
+            validatedName))
+        {
+            validatedName =
+                $"PLAYER {player.PlayerId}";
+        }
+
+        validatedName =
+            validatedName.Trim();
+
+        if (validatedName.Length > 16)
+        {
+            validatedName =
+                validatedName.Substring(
+                    0,
+                    16
+                );
+        }
+
         PlayerNames.Set(
             player,
-            playerName
+            validatedName
         );
 
         Debug.Log(
-            $"PLAYER NAME REGISTERED | " +
+            $"PLAYER NAME REGISTERED BY HOST | " +
             $"PlayerId: {player.PlayerId} | " +
-            $"Name: {playerName.Value}"
+            $"Name: {validatedName}"
         );
     }
 
-    // ============================
-    // GET PLAYER NAME
-    // ============================
 
     private string GetPlayerName(
         PlayerRef player)
@@ -228,8 +267,7 @@ public class WaitingRoomManager : NetworkBehaviour
                 networkName.Value;
 
             if (!string.IsNullOrWhiteSpace(
-                name
-            ))
+                name))
             {
                 return name;
             }
@@ -239,23 +277,32 @@ public class WaitingRoomManager : NetworkBehaviour
             $"PLAYER {player.PlayerId}";
     }
 
-    // ============================
-    // PLAYER COUNTS
-    // ============================
 
     private void UpdatePlayerCounts()
     {
-        int redCount = 0;
-        int blueCount = 0;
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (Runner == null)
+            return;
+
+        int redCount =
+            0;
+
+        int blueCount =
+            0;
 
         foreach (
             PlayerRef player
             in Runner.ActivePlayers)
         {
+
             if (player.PlayerId % 2 != 0)
             {
                 redCount++;
             }
+
+
             else
             {
                 blueCount++;
@@ -269,9 +316,6 @@ public class WaitingRoomManager : NetworkBehaviour
             blueCount;
     }
 
-    // ============================
-    // CAN START MATCH
-    // ============================
 
     private bool CanStartMatch()
     {
@@ -281,21 +325,18 @@ public class WaitingRoomManager : NetworkBehaviour
             !SceneChangeStarted;
     }
 
-    // ============================
-    // COUNTDOWN
-    // ============================
 
     private void UpdateCountdown()
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         if (SceneChangeStarted)
             return;
 
         bool canStart =
             CanStartMatch();
 
-        // ============================
-        // WAITING FOR PLAYERS
-        // ============================
 
         if (!canStart)
         {
@@ -316,9 +357,6 @@ public class WaitingRoomManager : NetworkBehaviour
             return;
         }
 
-        // ============================
-        // START COUNTDOWN
-        // ============================
 
         if (!CountdownStarted)
         {
@@ -341,13 +379,9 @@ public class WaitingRoomManager : NetworkBehaviour
             return;
         }
 
-        // ============================
-        // COUNTDOWN FINISHED
-        // ============================
 
         if (CountdownTimer.Expired(
-            Runner
-        ))
+            Runner))
         {
             StartMatch(
                 "COUNTDOWN FINISHED"
@@ -355,12 +389,26 @@ public class WaitingRoomManager : NetworkBehaviour
         }
     }
 
-    // ============================
-    // START MATCH BUTTON
-    // ============================
 
     public void RequestStartMatch()
     {
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
+
+        if (!Object.HasStateAuthority)
+        {
+            Debug.Log(
+                "START MATCH BLOCKED | " +
+                "NOT STATE AUTHORITY"
+            );
+
+            return;
+        }
+
         if (!Runner.IsSceneAuthority)
         {
             Debug.Log(
@@ -385,7 +433,7 @@ public class WaitingRoomManager : NetworkBehaviour
         }
 
         Debug.Log(
-            "OWNER PRESSED START MATCH"
+            "HOST PRESSED START MATCH"
         );
 
         StartMatch(
@@ -393,13 +441,11 @@ public class WaitingRoomManager : NetworkBehaviour
         );
     }
 
-    // ============================
-    // START MATCH
-    // ============================
 
     private void StartMatch(
         string reason)
     {
+
         if (!Object.HasStateAuthority)
             return;
 
@@ -412,11 +458,13 @@ public class WaitingRoomManager : NetworkBehaviour
         if (!CanStartMatch())
             return;
 
+
         CountdownStarted =
             false;
 
         CountdownTimer =
             TickTimer.None;
+
 
         SceneChangeStarted =
             true;
@@ -431,12 +479,23 @@ public class WaitingRoomManager : NetworkBehaviour
         LoadArena();
     }
 
-    // ============================
-    // LOAD ARENA
-    // ============================
 
     private void LoadArena()
     {
+        if (Runner == null)
+            return;
+
+
+        if (!Object.HasStateAuthority)
+        {
+            Debug.Log(
+                "WAITING ROOM: " +
+                "NOT STATE AUTHORITY"
+            );
+
+            return;
+        }
+
         if (!Runner.IsSceneAuthority)
         {
             Debug.Log(
@@ -447,10 +506,13 @@ public class WaitingRoomManager : NetworkBehaviour
             return;
         }
 
+
         int arenaBuildIndex =
-            SceneUtility.GetBuildIndexByScenePath(
-                $"Assets/Scenes/{arenaSceneName}.unity"
-            );
+            SceneUtility
+                .GetBuildIndexByScenePath(
+                    $"Assets/Scenes/" +
+                    $"{arenaSceneName}.unity"
+                );
 
         if (arenaBuildIndex < 0)
         {
@@ -459,6 +521,9 @@ public class WaitingRoomManager : NetworkBehaviour
                 $"SCENE {arenaSceneName} " +
                 $"NOT FOUND IN BUILD PROFILE"
             );
+
+            SceneChangeStarted =
+                false;
 
             return;
         }
@@ -469,10 +534,11 @@ public class WaitingRoomManager : NetworkBehaviour
             );
 
         Debug.Log(
-            $"SCENE AUTHORITY LOADING | " +
+            $"HOST LOADING NETWORK SCENE | " +
             $"{arenaSceneName} | " +
             $"Build Index: {arenaBuildIndex}"
         );
+
 
         Runner.LoadScene(
             arenaScene,
@@ -480,21 +546,18 @@ public class WaitingRoomManager : NetworkBehaviour
         );
     }
 
-    // ============================
-    // RENDER
-    // ============================
 
     public override void Render()
     {
         UpdateUI();
     }
 
-    // ============================
-    // UI
-    // ============================
 
     private void UpdateUI()
     {
+        if (Runner == null)
+            return;
+
         UpdateStatusText();
 
         UpdateCountdownText();
@@ -504,9 +567,6 @@ public class WaitingRoomManager : NetworkBehaviour
         UpdateStartButton();
     }
 
-    // ============================
-    // STATUS TEXT
-    // ============================
 
     private void UpdateStatusText()
     {
@@ -534,9 +594,6 @@ public class WaitingRoomManager : NetworkBehaviour
         }
     }
 
-    // ============================
-    // COUNTDOWN TEXT
-    // ============================
 
     private void UpdateCountdownText()
     {
@@ -560,9 +617,10 @@ public class WaitingRoomManager : NetworkBehaviour
         }
 
         float? remaining =
-            CountdownTimer.RemainingTime(
-                Runner
-            );
+            CountdownTimer
+                .RemainingTime(
+                    Runner
+                );
 
         if (!remaining.HasValue)
         {
@@ -579,34 +637,58 @@ public class WaitingRoomManager : NetworkBehaviour
 
         if (seconds < 0)
         {
-            seconds = 0;
+            seconds =
+                0;
         }
 
+        int minutes =
+            seconds / 60;
+
+        int displaySeconds =
+            seconds % 60;
+
         countdownText.text =
-            $"START IN 00:{seconds:00}";
+            $"START IN " +
+            $"{minutes:00}:" +
+            $"{displaySeconds:00}";
     }
 
-    // ============================
-    // START BUTTON
-    // ============================
 
     private void UpdateStartButton()
     {
         if (startMatchButton == null)
             return;
 
-        // Solo el dueño puede verlo.
-        if (!Runner.IsSceneAuthority)
+        if (Runner == null)
         {
             startMatchButton
                 .gameObject
-                .SetActive(false);
+                .SetActive(
+                    false
+                );
 
             return;
         }
 
-        // Solo aparece cuando
-        // existen ambos equipos.
+
+        bool isHost =
+            Object != null &&
+            Object.IsValid &&
+            Object.HasStateAuthority &&
+            Runner.IsSceneAuthority;
+
+        if (!isHost)
+        {
+            startMatchButton
+                .gameObject
+                .SetActive(
+                    false
+                );
+
+            return;
+        }
+
+
         bool shouldShow =
             RedPlayerCount >= 1 &&
             BluePlayerCount >= 1 &&
@@ -622,12 +704,12 @@ public class WaitingRoomManager : NetworkBehaviour
             shouldShow;
     }
 
-    // ============================
-    // PLAYER SLOTS
-    // ============================
 
     private void UpdatePlayerSlots()
     {
+        if (Runner == null)
+            return;
+
         ClearSlots(
             redSlots
         );
@@ -636,8 +718,11 @@ public class WaitingRoomManager : NetworkBehaviour
             blueSlots
         );
 
-        int redIndex = 0;
-        int blueIndex = 0;
+        int redIndex =
+            0;
+
+        int blueIndex =
+            0;
 
         foreach (
             PlayerRef player
@@ -648,28 +733,39 @@ public class WaitingRoomManager : NetworkBehaviour
                     player
                 );
 
+
             if (player.PlayerId % 2 != 0)
             {
                 if (redSlots != null &&
-                    redIndex < redSlots.Length)
+                    redIndex <
+                    redSlots.Length)
                 {
-                    if (redSlots[redIndex] != null)
+                    if (redSlots[redIndex] !=
+                        null)
                     {
-                        redSlots[redIndex].text =
+                        redSlots[
+                            redIndex
+                        ].text =
                             displayName;
                     }
                 }
 
                 redIndex++;
             }
+
+
             else
             {
                 if (blueSlots != null &&
-                    blueIndex < blueSlots.Length)
+                    blueIndex <
+                    blueSlots.Length)
                 {
-                    if (blueSlots[blueIndex] != null)
+                    if (blueSlots[blueIndex] !=
+                        null)
                     {
-                        blueSlots[blueIndex].text =
+                        blueSlots[
+                            blueIndex
+                        ].text =
                             displayName;
                     }
                 }
@@ -679,9 +775,6 @@ public class WaitingRoomManager : NetworkBehaviour
         }
     }
 
-    // ============================
-    // CLEAR SLOTS
-    // ============================
 
     private void ClearSlots(
         TMP_Text[] slots)
@@ -694,11 +787,11 @@ public class WaitingRoomManager : NetworkBehaviour
             i < slots.Length;
             i++)
         {
-            if (slots[i] != null)
-            {
-                slots[i].text =
-                    "";
-            }
+            if (slots[i] == null)
+                continue;
+
+            slots[i].text =
+                "";
         }
     }
 }

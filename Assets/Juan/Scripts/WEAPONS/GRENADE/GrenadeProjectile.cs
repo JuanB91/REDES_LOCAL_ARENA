@@ -5,92 +5,94 @@ using UnityEngine;
 
 public class GrenadeProjectile : NetworkBehaviour
 {
-    // ============================
-    // REFERENCIAS
-    // ============================
 
     [Header("Referencias")]
-    [SerializeField] private Rigidbody rb;
+    [SerializeField]
+    private Rigidbody rb;
 
-    [SerializeField] private Transform visualObject;
+    [SerializeField]
+    private Transform visualObject;
 
-    // ============================
-    // FÍSICA
-    // ============================
 
     [Header("Física")]
-    [SerializeField] private bool useGravity = true;
+    [SerializeField]
+    private bool useGravity = true;
 
-    [SerializeField] private float mass = 1f;
+    [SerializeField]
+    private float mass = 1f;
 
-    [SerializeField] private float linearDamping = 0.05f;
+    [SerializeField]
+    private float linearDamping = 0.05f;
 
-    [SerializeField] private float angularDamping = 0.05f;
+    [SerializeField]
+    private float angularDamping = 0.05f;
 
-    // ============================
-    // ROTACIÓN
-    // ============================
 
     [Header("Rotación al lanzar")]
-    [SerializeField] private float spinForce = 8f;
+    [SerializeField]
+    private float spinForce = 8f;
 
-    // ============================
-    // FUSIBLE
-    // ============================
 
     [Header("Fusible")]
-    [SerializeField] private float fuseTime = 3f;
+    [SerializeField]
+    private float fuseTime = 3f;
 
-    // ============================
-    // EXPLOSIÓN
-    // ============================
 
     [Header("Explosión")]
-    [SerializeField] private float explosionRadius = 5f;
+    [SerializeField]
+    private float explosionRadius = 5f;
 
-    [SerializeField] private int maxExplosionDamage = 70;
+    [SerializeField]
+    private int maxExplosionDamage = 70;
 
-    [SerializeField] private int minExplosionDamage = 0;
+    [SerializeField]
+    private int minExplosionDamage = 0;
 
-    // ============================
-    // DEBUG VISUAL
-    // ============================
 
     [Header("Debug Visual")]
-    [SerializeField] private bool showDebugExplosion = true;
+    [SerializeField]
+    private bool showDebugExplosion = true;
 
-    [SerializeField] private float debugExplosionDuration = 0.5f;
+    [SerializeField]
+    private float debugExplosionDuration = 0.5f;
 
-    // ============================
-    // DEBUG
-    // ============================
 
     [Header("Debug")]
-    [SerializeField] private bool showDebug = true;
+    [SerializeField]
+    private bool showDebug = true;
 
-    // ============================
-    // SHOOTER
-    // ============================
+
+    [Networked]
+    private NetworkBool HasBeenLaunched
+    {
+        get;
+        set;
+    }
+
+    [Networked]
+    private NetworkBool HasExploded
+    {
+        get;
+        set;
+    }
+
+    [Networked]
+    private TickTimer FuseTimer
+    {
+        get;
+        set;
+    }
 
     private NetworkObject shooter;
 
-    // ============================
-    // ESTADO
-    // ============================
-
-    private bool hasBeenLaunched = false;
-
-    private bool hasExploded = false;
-
-    // ============================
-    // SPAWN
-    // ============================
 
     public override void Spawned()
     {
+
         if (rb == null)
         {
-            rb = GetComponent<Rigidbody>();
+            rb =
+                GetComponent<Rigidbody>();
         }
 
         if (rb == null)
@@ -102,13 +104,11 @@ public class GrenadeProjectile : NetworkBehaviour
             return;
         }
 
-        // ============================
-        // AUTORIDAD
-        // ============================
 
         if (Object.HasStateAuthority)
         {
-            rb.isKinematic = false;
+            rb.isKinematic =
+                false;
 
             rb.useGravity =
                 useGravity;
@@ -123,30 +123,61 @@ public class GrenadeProjectile : NetworkBehaviour
                 angularDamping;
 
             rb.collisionDetectionMode =
-                CollisionDetectionMode.ContinuousDynamic;
+                CollisionDetectionMode
+                    .ContinuousDynamic;
+
+            HasBeenLaunched =
+                false;
+
+            HasExploded =
+                false;
+
+            FuseTimer =
+                TickTimer.None;
         }
+
+
         else
         {
-            rb.isKinematic = true;
+            rb.isKinematic =
+                true;
 
-            rb.useGravity = false;
+            rb.useGravity =
+                false;
         }
 
+        if (showDebug)
+        {
+            Debug.Log(
+                $"GRENADE SPAWNED | " +
+                $"STATE: {Object.HasStateAuthority} | " +
+                $"INPUT: {Object.HasInputAuthority}"
+            );
+        }
     }
 
-    // ============================
-    // INICIALIZAR / LANZAR
-    // ============================
 
     public void Initialize(
         NetworkObject shooterObject,
         Vector3 launchVelocity)
     {
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
+        if (HasBeenLaunched)
+            return;
+
+
         shooter =
             shooterObject;
+
 
         if (rb == null)
         {
@@ -155,77 +186,114 @@ public class GrenadeProjectile : NetworkBehaviour
         }
 
         if (rb == null)
-            return;
+        {
+            Debug.LogError(
+                "GRENADE: No tiene Rigidbody al intentar lanzarla."
+            );
 
-        // ============================
-        // VELOCIDAD
-        // ============================
+            return;
+        }
+
 
         rb.linearVelocity =
             launchVelocity;
 
-        // ============================
-        // GIRO
-        // ============================
-
         Vector3 randomSpin =
             new Vector3(
-                Random.Range(-1f, 1f),
-                Random.Range(-1f, 1f),
-                Random.Range(-1f, 1f)
-            ).normalized;
+                Random.Range(
+                    -1f,
+                    1f
+                ),
+                Random.Range(
+                    -1f,
+                    1f
+                ),
+                Random.Range(
+                    -1f,
+                    1f
+                )
+            );
+
+        if (randomSpin.sqrMagnitude >
+            0.001f)
+        {
+            randomSpin.Normalize();
+        }
+        else
+        {
+            randomSpin =
+                Vector3.one.normalized;
+        }
 
         rb.angularVelocity =
             randomSpin *
             spinForce;
 
-        hasBeenLaunched =
+        HasBeenLaunched =
             true;
+
+        HasExploded =
+            false;
+
+        FuseTimer =
+            TickTimer.CreateFromSeconds(
+                Runner,
+                fuseTime
+            );
 
         if (showDebug)
         {
             Debug.Log(
-                $"GRENADE LANZADA | " +
+                $"GRENADE LAUNCHED | " +
+                $"Player: " +
+                $"{GetShooterId()} | " +
                 $"Velocity: {launchVelocity} | " +
                 $"Fuse: {fuseTime}s"
             );
         }
-
-        StartCoroutine(
-            FuseCoroutine()
-        );
     }
 
-    // ============================
-    // FUSIBLE
-    // ============================
 
-    private IEnumerator FuseCoroutine()
+    public override void FixedUpdateNetwork()
     {
-        yield return new WaitForSeconds(
-            fuseTime
-        );
 
-        if (hasExploded)
-            yield break;
+        if (!Object.HasStateAuthority)
+            return;
 
-        Explode();
+        if (!HasBeenLaunched)
+            return;
+
+        if (HasExploded)
+            return;
+
+        if (!FuseTimer.IsRunning)
+            return;
+
+
+        if (FuseTimer.Expired(
+            Runner))
+        {
+            Explode();
+        }
     }
 
-    // ============================
-    // COLISIONES
-    // ============================
 
     private void OnCollisionEnter(
         Collision collision)
     {
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
-        if (!hasBeenLaunched)
+        if (!HasBeenLaunched)
             return;
 
-        if (hasExploded)
+        if (HasExploded)
             return;
 
         if (collision == null)
@@ -234,33 +302,39 @@ public class GrenadeProjectile : NetworkBehaviour
         if (showDebug)
         {
             Debug.Log(
-                $"GRENADE REBOTÓ CONTRA: " +
+                $"GRENADE BOUNCED AGAINST: " +
                 $"{collision.gameObject.name}"
             );
         }
 
-        // La granada NO explota por impacto.
-        // Solo explota cuando termina el fuse.
     }
 
-    // ============================
-    // EXPLOSIÓN
-    // ============================
 
     private void Explode()
     {
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
-        if (hasExploded)
+        if (HasExploded)
             return;
 
-        hasExploded = true;
+        HasExploded =
+            true;
+
+        FuseTimer =
+            TickTimer.None;
 
         Vector3 explosionPosition =
             transform.position;
 
-        // Frenamos completamente la granada.
+
         if (rb != null)
         {
             rb.linearVelocity =
@@ -276,27 +350,27 @@ public class GrenadeProjectile : NetworkBehaviour
         if (showDebug)
         {
             Debug.Log(
-                $"GRENADE EXPLOTA EN: " +
-                $"{explosionPosition}"
+                $"GRENADE EXPLODES | " +
+                $"Player: {GetShooterId()} | " +
+                $"Position: {explosionPosition}"
             );
         }
 
-        // ============================
-        // DAÑO EN ÁREA
-        // ============================
 
         ApplyExplosionDamage(
             explosionPosition
         );
 
-        // ============================
-        // DEBUG VISUAL
-        // ============================
+
+        RPC_PlayExplosionVisual(
+            explosionPosition
+        );
+
 
         if (showDebugExplosion)
         {
             StartCoroutine(
-                DebugExplosionCoroutine()
+                DespawnAfterDebugDelay()
             );
         }
         else
@@ -305,23 +379,25 @@ public class GrenadeProjectile : NetworkBehaviour
         }
     }
 
-    // ============================
-    // DAÑO EN ÁREA
-    // ============================
 
     private void ApplyExplosionDamage(
         Vector3 explosionPosition)
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         Collider[] colliders =
             Physics.OverlapSphere(
                 explosionPosition,
                 explosionRadius
             );
 
-        // Un jugador puede tener más de un collider.
-        // Guardamos solo la distancia más cercana.
-        Dictionary<PHealth, float> targets =
-            new Dictionary<PHealth, float>();
+        Dictionary<PHealth, float>
+            targets =
+                new Dictionary<
+                    PHealth,
+                    float
+                >();
 
         foreach (
             Collider hitCollider
@@ -331,19 +407,26 @@ public class GrenadeProjectile : NetworkBehaviour
                 continue;
 
             PHealth health =
-                hitCollider.GetComponentInParent<PHealth>();
+                hitCollider
+                    .GetComponentInParent<
+                        PHealth
+                    >();
 
             if (health == null)
                 continue;
 
-            // IMPORTANTE:
-            // NO excluimos al shooter.
-            // La granada puede hacer self-damage.
+            if (health.Object == null)
+                continue;
+
+            if (!health.Object.IsValid)
+                continue;
+
 
             Vector3 closestPoint =
-                hitCollider.ClosestPoint(
-                    explosionPosition
-                );
+                hitCollider
+                    .ClosestPoint(
+                        explosionPosition
+                    );
 
             float distance =
                 Vector3.Distance(
@@ -351,7 +434,8 @@ public class GrenadeProjectile : NetworkBehaviour
                     closestPoint
                 );
 
-            if (targets.ContainsKey(health))
+            if (targets.ContainsKey(
+                health))
             {
                 if (distance <
                     targets[health])
@@ -369,12 +453,10 @@ public class GrenadeProjectile : NetworkBehaviour
             }
         }
 
-        // ============================
-        // APLICAR DAÑO
-        // ============================
 
         foreach (
-            KeyValuePair<PHealth, float> target
+            KeyValuePair<PHealth, float>
+                target
             in targets)
         {
             PHealth health =
@@ -400,12 +482,15 @@ public class GrenadeProjectile : NetworkBehaviour
             {
                 Debug.Log(
                     $"GRENADE SPLASH | " +
-                    $"Target: {health.gameObject.name} | " +
+                    $"Target: " +
+                    $"{health.gameObject.name} | " +
                     $"Distance: {distance:F2} | " +
                     $"Damage: {damage}" +
-                    (isShooter
-                        ? " | SELF DAMAGE"
-                        : "")
+                    (
+                        isShooter
+                            ? " | SELF DAMAGE"
+                            : ""
+                    )
                 );
             }
 
@@ -416,13 +501,16 @@ public class GrenadeProjectile : NetworkBehaviour
         }
     }
 
-    // ============================
-    // CALCULAR DAÑO
-    // ============================
 
     private int CalculateExplosionDamage(
         float distance)
     {
+        if (explosionRadius <= 0f)
+        {
+            return
+                maxExplosionDamage;
+        }
+
         distance =
             Mathf.Clamp(
                 distance,
@@ -434,27 +522,46 @@ public class GrenadeProjectile : NetworkBehaviour
             distance /
             explosionRadius;
 
-        float damage =
+        float calculatedDamage =
             Mathf.Lerp(
                 maxExplosionDamage,
                 minExplosionDamage,
                 normalizedDistance
             );
 
-        return Mathf.RoundToInt(
-            damage
+        return
+            Mathf.RoundToInt(
+                calculatedDamage
+            );
+    }
+
+
+    [Rpc(
+        RpcSources.StateAuthority,
+        RpcTargets.All
+    )]
+    private void RPC_PlayExplosionVisual(
+        Vector3 explosionPosition)
+    {
+        if (!showDebugExplosion)
+            return;
+
+        StartCoroutine(
+            DebugExplosionVisualCoroutine(
+                explosionPosition
+            )
         );
     }
 
-    // ============================
-    // DEBUG VISUAL
-    // ============================
 
-    private IEnumerator DebugExplosionCoroutine()
+    private IEnumerator
+        DebugExplosionVisualCoroutine(
+            Vector3 explosionPosition)
     {
-        // Desactivamos el collider
-        // para que la esfera gigante
-        // no empuje ni choque cosas.
+
+        transform.position =
+            explosionPosition;
+
         Collider grenadeCollider =
             GetComponent<Collider>();
 
@@ -467,7 +574,8 @@ public class GrenadeProjectile : NetworkBehaviour
         if (visualObject != null)
         {
             float diameter =
-                explosionRadius * 2f;
+                explosionRadius *
+                2f;
 
             visualObject.localScale =
                 new Vector3(
@@ -479,7 +587,8 @@ public class GrenadeProjectile : NetworkBehaviour
         else
         {
             Debug.LogWarning(
-                "GRENADE: No hay Visual Object asignado."
+                "GRENADE: " +
+                "No hay Visual Object asignado."
             );
         }
 
@@ -487,32 +596,65 @@ public class GrenadeProjectile : NetworkBehaviour
         {
             Debug.Log(
                 $"GRENADE DEBUG EXPLOSION | " +
-                $"Radio: {explosionRadius} | " +
-                $"Diámetro: {explosionRadius * 2f}"
+                $"Radius: {explosionRadius} | " +
+                $"Diameter: " +
+                $"{explosionRadius * 2f}"
             );
         }
 
-        yield return new WaitForSeconds(
-            debugExplosionDuration
-        );
+        yield return
+            new WaitForSeconds(
+                debugExplosionDuration
+            );
+    }
+
+
+    private IEnumerator
+        DespawnAfterDebugDelay()
+    {
+        yield return
+            new WaitForSeconds(
+                debugExplosionDuration
+            );
 
         DespawnGrenade();
     }
 
-    // ============================
-    // DESPAWN
-    // ============================
 
     private void DespawnGrenade()
     {
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
-        if (Object == null)
+        if (Runner == null)
             return;
 
         Runner.Despawn(
             Object
         );
+    }
+
+    
+    private string GetShooterId()
+    {
+        if (shooter == null)
+        {
+            return "NONE";
+        }
+
+        if (!shooter.IsValid)
+        {
+            return "INVALID";
+        }
+
+        return
+            shooter.InputAuthority.PlayerId
+                .ToString();
     }
 }

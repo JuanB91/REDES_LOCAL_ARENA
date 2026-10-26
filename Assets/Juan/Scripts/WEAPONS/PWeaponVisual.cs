@@ -3,17 +3,11 @@ using UnityEngine;
 
 public class PWeaponVisuals : NetworkBehaviour
 {
-    // ============================
-    // INVENTORY
-    // ============================
 
     [Header("Inventory")]
     [SerializeField]
     private PWeaponInventory inventory;
 
-    // ============================
-    // WEAPON VISUALS
-    // ============================
 
     [Header("Weapon Visuals")]
     [SerializeField]
@@ -34,17 +28,11 @@ public class PWeaponVisuals : NetworkBehaviour
     [SerializeField]
     private GameObject grenadeVisual;
 
-    // ============================
-    // LOCAL
-    // ============================
 
     private PWeaponInventory.WeaponType lastWeapon;
 
-    private bool initialized = false;
+    private bool initialized;
 
-    // ============================
-    // AWAKE
-    // ============================
 
     private void Awake()
     {
@@ -55,9 +43,6 @@ public class PWeaponVisuals : NetworkBehaviour
         }
     }
 
-    // ============================
-    // SPAWNED
-    // ============================
 
     public override void Spawned()
     {
@@ -70,11 +55,15 @@ public class PWeaponVisuals : NetworkBehaviour
         if (inventory == null)
         {
             Debug.LogError(
-                "PWEAPONVISUALS: PWeaponInventory no encontrado."
+                "PWEAPONVISUALS: " +
+                "PWeaponInventory no encontrado."
             );
 
             return;
         }
+
+        initialized =
+            false;
 
         lastWeapon =
             inventory.CurrentWeapon;
@@ -85,17 +74,28 @@ public class PWeaponVisuals : NetworkBehaviour
             true;
     }
 
-    // ============================
-    // RENDER
-    // ============================
 
     public override void Render()
     {
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
+        if (inventory == null)
+        {
+            inventory =
+                GetComponent<PWeaponInventory>();
+        }
+
         if (inventory == null)
             return;
 
+
         if (!initialized ||
-            inventory.CurrentWeapon != lastWeapon)
+            inventory.CurrentWeapon !=
+            lastWeapon)
         {
             lastWeapon =
                 inventory.CurrentWeapon;
@@ -107,16 +107,13 @@ public class PWeaponVisuals : NetworkBehaviour
         }
     }
 
-    // ============================
-    // UPDATE VISUALS
-    // ============================
 
     private void UpdateWeaponVisuals()
     {
         if (inventory == null)
             return;
 
-        // Apagar absolutamente todo
+
         SetWeaponActive(
             pistolVisual,
             false
@@ -147,10 +144,11 @@ public class PWeaponVisuals : NetworkBehaviour
             false
         );
 
-        // Prender solamente el arma equipada
+
         switch (inventory.CurrentWeapon)
         {
-            case PWeaponInventory.WeaponType.Pistol:
+            case PWeaponInventory
+                .WeaponType.Pistol:
 
                 SetWeaponActive(
                     pistolVisual,
@@ -159,7 +157,8 @@ public class PWeaponVisuals : NetworkBehaviour
 
                 break;
 
-            case PWeaponInventory.WeaponType.Shotgun:
+            case PWeaponInventory
+                .WeaponType.Shotgun:
 
                 SetWeaponActive(
                     shotgunVisual,
@@ -168,7 +167,8 @@ public class PWeaponVisuals : NetworkBehaviour
 
                 break;
 
-            case PWeaponInventory.WeaponType.AssaultRifle:
+            case PWeaponInventory
+                .WeaponType.AssaultRifle:
 
                 SetWeaponActive(
                     assaultRifleVisual,
@@ -177,7 +177,8 @@ public class PWeaponVisuals : NetworkBehaviour
 
                 break;
 
-            case PWeaponInventory.WeaponType.Sniper:
+            case PWeaponInventory
+                .WeaponType.Sniper:
 
                 SetWeaponActive(
                     sniperVisual,
@@ -186,7 +187,8 @@ public class PWeaponVisuals : NetworkBehaviour
 
                 break;
 
-            case PWeaponInventory.WeaponType.RocketLauncher:
+            case PWeaponInventory
+                .WeaponType.RocketLauncher:
 
                 SetWeaponActive(
                     rocketLauncherVisual,
@@ -195,7 +197,8 @@ public class PWeaponVisuals : NetworkBehaviour
 
                 break;
 
-            case PWeaponInventory.WeaponType.Grenade:
+            case PWeaponInventory
+                .WeaponType.Grenade:
 
                 SetWeaponActive(
                     grenadeVisual,
@@ -206,9 +209,6 @@ public class PWeaponVisuals : NetworkBehaviour
         }
     }
 
-    // ============================
-    // SET ACTIVE
-    // ============================
 
     private void SetWeaponActive(
         GameObject weaponObject,
@@ -217,8 +217,11 @@ public class PWeaponVisuals : NetworkBehaviour
         if (weaponObject == null)
             return;
 
-        if (weaponObject.activeSelf == value)
+        if (weaponObject.activeSelf ==
+            value)
+        {
             return;
+        }
 
         weaponObject.SetActive(
             value

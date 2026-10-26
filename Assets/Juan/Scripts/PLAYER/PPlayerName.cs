@@ -4,17 +4,10 @@ using UnityEngine;
 
 public class PPlayerName : NetworkBehaviour
 {
-    // ============================
-    // REFERENCES
-    // ============================
-
+    
     [Header("References")]
     [SerializeField]
     private TMP_Text nameText;
-
-    // ============================
-    // SETTINGS
-    // ============================
 
     [Header("Settings")]
     [SerializeField]
@@ -29,75 +22,199 @@ public class PPlayerName : NetworkBehaviour
     [SerializeField]
     private float rotationOffsetY = 180f;
 
-    // ============================
-    // NETWORK
-    // ============================
-
     [Networked]
-    private NetworkString<_16> NetworkPlayerName { get; set; }
-
-    // ============================
-    // LOCAL
-    // ============================
+    private NetworkString<_16> NetworkPlayerName
+    {
+        get;
+        set;
+    }
 
     private Camera localCamera;
 
-    // ============================
-    // SPAWNED
-    // ============================
+    private bool nameSubmitted;
 
+    private string lastDisplayedName =
+        "";
+
+    
     public override void Spawned()
     {
-        if (Object.HasStateAuthority)
+        nameSubmitted =
+            false;
+
+        
+        if (nameText == null)
         {
-            string localName =
-                PlayerProfile.PlayerName;
+            nameText =
+                GetComponentInChildren<TMP_Text>(
+                    true
+                );
+        }
 
-            if (string.IsNullOrWhiteSpace(localName))
-            {
-                localName =
-                    fallbackName;
-            }
-
-            localName =
-                localName.Trim();
-
-            if (localName.Length > 16)
-            {
-                localName =
-                    localName.Substring(
-                        0,
-                        16
-                    );
-            }
-
-            NetworkPlayerName =
-                localName;
-
-            Debug.Log(
-                $"PLAYER NAME SPAWNED | " +
-                $"Player: {Object.InputAuthority.PlayerId} | " +
-                $"Name: {localName}"
+        if (nameText == null)
+        {
+            Debug.LogError(
+                $"PPLAYERNAME: No TMP_Text found | " +
+                $"Player: {Object.InputAuthority.PlayerId}"
             );
+        }
+
+  
+        if (Object.HasInputAuthority)
+        {
+            Debug.Log(
+                $"LOCAL PLAYER NAME BEFORE SUBMIT | " +
+                $"Player: {Object.InputAuthority.PlayerId} | " +
+                $"PlayerProfile: '{PlayerProfile.PlayerName}'"
+            );
+
+            SubmitLocalPlayerName();
         }
 
         FindLocalCamera();
 
         UpdateNameVisual();
+
+        Debug.Log(
+            $"PLAYER NAME COMPONENT READY | " +
+            $"Player: {Object.InputAuthority.PlayerId} | " +
+            $"StateAuthority: {Object.HasStateAuthority} | " +
+            $"InputAuthority: {Object.HasInputAuthority} | " +
+            $"NetworkName: '{NetworkPlayerName.Value}'"
+        );
     }
 
-    // ============================
-    // RENDER
-    // ============================
+    
+    private void SubmitLocalPlayerName()
+    {
+        if (!Object.HasInputAuthority)
+            return;
 
+        if (nameSubmitted)
+            return;
+
+        string localName =
+            PlayerProfile.PlayerName;
+
+        localName =
+            SanitizePlayerName(
+                localName
+            );
+
+        nameSubmitted =
+            true;
+
+        Debug.Log(
+            $"SUBMITTING PLAYER NAME | " +
+            $"Player: {Object.InputAuthority.PlayerId} | " +
+            $"Name: '{localName}'"
+        );
+
+        
+        if (Object.HasStateAuthority)
+        {
+            SetPlayerNameAuthoritative(
+                localName
+            );
+
+            return;
+        }
+
+        RPC_SubmitPlayerName(
+            localName
+        );
+    }
+
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority
+    )]
+    private void RPC_SubmitPlayerName(
+        string playerName)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        Debug.Log(
+            $"HOST RECEIVED PLAYER NAME | " +
+            $"Player: {Object.InputAuthority.PlayerId} | " +
+            $"Received: '{playerName}'"
+        );
+
+        SetPlayerNameAuthoritative(
+            playerName
+        );
+    }
+
+    
+    private void SetPlayerNameAuthoritative(
+        string playerName)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        playerName =
+            SanitizePlayerName(
+                playerName
+            );
+
+        NetworkPlayerName =
+            playerName;
+
+        Debug.Log(
+            $"PLAYER NAME REGISTERED | " +
+            $"Player: {Object.InputAuthority.PlayerId} | " +
+            $"Name: '{playerName}'"
+        );
+    }
+
+    private string SanitizePlayerName(
+        string playerName)
+    {
+        if (string.IsNullOrWhiteSpace(
+            playerName))
+        {
+            return fallbackName;
+        }
+
+        playerName =
+            playerName.Trim();
+
+        if (playerName.Equals(
+                "join",
+                System.StringComparison
+                    .OrdinalIgnoreCase) ||
+            playerName.Equals(
+                "host",
+                System.StringComparison
+                    .OrdinalIgnoreCase))
+        {
+            Debug.LogWarning(
+                $"INVALID PLAYER NAME DETECTED: " +
+                $"'{playerName}'. " +
+                $"Using fallback."
+            );
+
+            return fallbackName;
+        }
+
+        if (playerName.Length > 16)
+        {
+            playerName =
+                playerName.Substring(
+                    0,
+                    16
+                );
+        }
+
+        return playerName;
+    }
+
+    
     public override void Render()
     {
         UpdateNameVisual();
     }
-
-    // ============================
-    // FIND LOCAL CAMERA
-    // ============================
 
     private void FindLocalCamera()
     {
@@ -106,21 +223,32 @@ public class PPlayerName : NetworkBehaviour
                 FindObjectsSortMode.None
             );
 
-        foreach (PPlayerName player in players)
+        foreach (
+            PPlayerName player
+            in players)
         {
+            if (player == null)
+                continue;
+
             if (player.Object == null)
                 continue;
 
             if (!player.Object.IsValid)
                 continue;
 
-            if (!player.Object.HasStateAuthority)
+            if (!player.Object
+                .HasInputAuthority)
+            {
                 continue;
+            }
 
             Camera camera =
-                player.GetComponentInChildren<Camera>(
-                    true
-                );
+                player
+                    .GetComponentInChildren<
+                        Camera
+                    >(
+                        true
+                    );
 
             if (camera != null)
             {
@@ -135,57 +263,90 @@ public class PPlayerName : NetworkBehaviour
             Camera.main;
     }
 
-    // ============================
-    // UPDATE NAME
-    // ============================
-
+    
     private void UpdateNameVisual()
     {
         if (nameText == null)
             return;
 
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
+        
         if (hideForLocalPlayer &&
-            Object.HasStateAuthority)
+            Object.HasInputAuthority)
         {
-            nameText.gameObject.SetActive(
-                false
-            );
+            if (nameText
+                .gameObject
+                .activeSelf)
+            {
+                nameText.gameObject
+                    .SetActive(
+                        false
+                    );
+            }
 
             return;
         }
 
-        nameText.gameObject.SetActive(
-            true
-        );
+        if (!nameText
+            .gameObject
+            .activeSelf)
+        {
+            nameText.gameObject
+                .SetActive(
+                    true
+                );
+        }
 
+        
         string displayName =
             NetworkPlayerName.Value;
 
-        if (string.IsNullOrWhiteSpace(
-            displayName
-        ))
+        displayName =
+            SanitizePlayerName(
+                displayName
+            );
+
+        if (nameText.text !=
+            displayName)
         {
-            displayName =
-                fallbackName;
+            nameText.text =
+                displayName;
         }
 
-        nameText.text =
-            displayName;
-    }
+        if (lastDisplayedName !=
+            displayName)
+        {
+            lastDisplayedName =
+                displayName;
 
-    // ============================
-    // BILLBOARD
-    // ============================
+            Debug.Log(
+                $"DISPLAYING PLAYER NAME | " +
+                $"Player: {Object.InputAuthority.PlayerId} | " +
+                $"Name: '{displayName}'"
+            );
+        }
+    }
 
     private void LateUpdate()
     {
         if (nameText == null)
             return;
 
-        if (!nameText.gameObject.activeSelf)
+        if (!nameText
+            .gameObject
+            .activeSelf)
+        {
             return;
+        }
 
-        if (localCamera == null)
+    
+        if (localCamera == null ||
+            !localCamera.enabled)
         {
             FindLocalCamera();
 
@@ -194,10 +355,14 @@ public class PPlayerName : NetworkBehaviour
         }
 
         Vector3 targetPosition =
-            localCamera.transform.position;
+            localCamera
+                .transform
+                .position;
 
         Vector3 textPosition =
-            nameText.transform.position;
+            nameText
+                .transform
+                .position;
 
         if (rotateOnlyYAxis)
         {
@@ -209,9 +374,13 @@ public class PPlayerName : NetworkBehaviour
             targetPosition -
             textPosition;
 
-        if (direction.sqrMagnitude <= 0.001f)
+        if (direction.sqrMagnitude <=
+            0.001f)
+        {
             return;
+        }
 
+        
         Quaternion lookRotation =
             Quaternion.LookRotation(
                 direction

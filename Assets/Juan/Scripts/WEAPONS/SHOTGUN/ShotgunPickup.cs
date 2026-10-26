@@ -3,15 +3,24 @@ using UnityEngine;
 
 public class ShotgunPickup : NetworkBehaviour
 {
+    
     [Header("Pickup")]
-    [SerializeField] private int shotgunAmmoAmount = 6;
+    [SerializeField]
+    private int shotgunAmmoAmount = 6;
+
 
     [Header("Respawn")]
-    [SerializeField] private float respawnTime = 10f;
+    [SerializeField]
+    private float respawnTime = 10f;
+
 
     [Header("Referencias")]
-    [SerializeField] private GameObject visualObject;
-    [SerializeField] private Collider pickupCollider;
+    [SerializeField]
+    private GameObject visualObject;
+
+    [SerializeField]
+    private Collider pickupCollider;
+
 
     [Networked]
     private NetworkBool IsAvailable { get; set; }
@@ -19,74 +28,92 @@ public class ShotgunPickup : NetworkBehaviour
     [Networked]
     private TickTimer RespawnTimer { get; set; }
 
+
     public override void Spawned()
     {
-        // Solo la autoridad del pickup inicializa el estado.
         if (Object.HasStateAuthority)
         {
-            IsAvailable = true;
-            RespawnTimer = TickTimer.None;
+            IsAvailable =
+                true;
+
+            RespawnTimer =
+                TickTimer.None;
         }
 
         UpdateVisualState();
+
+        Debug.Log(
+            $"SHOTGUN PICKUP READY | " +
+            $"STATE AUTHORITY: {Object.HasStateAuthority}"
+        );
     }
 
-    private void OnTriggerEnter(Collider other)
-    {
-        Debug.Log(
-            $"SHOTGUN TRIGGER detectó: {other.name}"
-        );
 
-        // Buscamos el inventario del jugador.
+    private void OnTriggerEnter(
+        Collider other)
+    {
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
+        if (!Object.HasStateAuthority)
+            return;
+
+
+        if (!IsAvailable)
+            return;
+
+
         PWeaponInventory inventory =
-            other.GetComponentInParent<PWeaponInventory>();
+            other
+                .GetComponentInParent<
+                    PWeaponInventory
+                >();
 
         if (inventory == null)
-        {
-            Debug.Log(
-                "El objeto que entró no tiene PWeaponInventory."
-            );
-
             return;
-        }
 
-        // IMPORTANTE:
-        // solo el dueño local de ese Player puede recogerla.
-        if (!inventory.Object.HasStateAuthority)
-        {
+        if (inventory.Object == null)
             return;
-        }
 
-        // Si el pickup ya está desactivado, no hacemos nada.
-        if (!IsAvailable)
+        if (!inventory.Object.IsValid)
+            return;
+
+        if (!inventory.Object
+            .HasStateAuthority)
         {
             return;
         }
 
         Debug.Log(
-            "PLAYER LOCAL ENTRÓ AL PICKUP DE ESCOPETA"
+            $"SHOTGUN PICKUP DETECTED | " +
+            $"Player: " +
+            $"{inventory.Object.InputAuthority.PlayerId}"
         );
 
-        // Damos la escopeta / munición al jugador local.
+
         inventory.AddShotgun(
             shotgunAmmoAmount
         );
 
-        // Pedimos a la autoridad del pickup que lo desactive.
-        RPC_RequestPickup();
+
+        ConsumePickup();
     }
 
-    [Rpc(
-        RpcSources.All,
-        RpcTargets.StateAuthority
-    )]
-    private void RPC_RequestPickup()
+
+    private void ConsumePickup()
     {
-        // Por seguridad, comprobamos otra vez.
+        if (!Object.HasStateAuthority)
+            return;
+
         if (!IsAvailable)
             return;
 
-        IsAvailable = false;
+        IsAvailable =
+            false;
 
         RespawnTimer =
             TickTimer.CreateFromSeconds(
@@ -95,49 +122,73 @@ public class ShotgunPickup : NetworkBehaviour
             );
 
         Debug.Log(
-            $"SHOTGUN RECOGIDA. " +
-            $"Respawn en {respawnTime} segundos."
+            $"SHOTGUN PICKUP CONSUMED | " +
+            $"RESPAWN IN: {respawnTime} SECONDS"
         );
     }
+
 
     public override void FixedUpdateNetwork()
     {
         if (!Object.HasStateAuthority)
             return;
 
-        if (!IsAvailable &&
-            RespawnTimer.Expired(Runner))
-        {
-            IsAvailable = true;
-            RespawnTimer = TickTimer.None;
+        if (IsAvailable)
+            return;
 
-            Debug.Log(
-                "SHOTGUN PICKUP DISPONIBLE NUEVAMENTE"
-            );
+        if (!RespawnTimer.IsRunning)
+            return;
+
+        if (!RespawnTimer.Expired(
+            Runner))
+        {
+            return;
         }
+
+        IsAvailable =
+            true;
+
+        RespawnTimer =
+            TickTimer.None;
+
+        Debug.Log(
+            "SHOTGUN PICKUP AVAILABLE AGAIN"
+        );
     }
+
 
     public override void Render()
     {
         UpdateVisualState();
     }
 
+
     private void UpdateVisualState()
     {
         bool available =
             IsAvailable;
 
+
         if (visualObject != null)
         {
-            visualObject.SetActive(
-                available
-            );
+            if (visualObject.activeSelf !=
+                available)
+            {
+                visualObject.SetActive(
+                    available
+                );
+            }
         }
+
 
         if (pickupCollider != null)
         {
-            pickupCollider.enabled =
-                available;
+            if (pickupCollider.enabled !=
+                available)
+            {
+                pickupCollider.enabled =
+                    available;
+            }
         }
     }
 }

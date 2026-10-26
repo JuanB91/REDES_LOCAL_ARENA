@@ -3,22 +3,18 @@ using UnityEngine;
 
 public class PTeamColor : NetworkBehaviour
 {
-    // ============================
-    // REFERENCES
-    // ============================
-
+ 
     [Header("Referencias")]
+
     [SerializeField]
     private PTeam team;
 
     [SerializeField]
     private Renderer capsuleRenderer;
 
-    // ============================
-    // COLORS
-    // ============================
 
     [Header("Colores")]
+
     [SerializeField]
     private Color redTeamColor =
         Color.red;
@@ -27,9 +23,6 @@ public class PTeamColor : NetworkBehaviour
     private Color blueTeamColor =
         Color.blue;
 
-    // ============================
-    // RUNTIME
-    // ============================
 
     private Material runtimeMaterial;
 
@@ -37,9 +30,6 @@ public class PTeamColor : NetworkBehaviour
 
     private bool initialized;
 
-    // ============================
-    // AWAKE
-    // ============================
 
     private void Awake()
     {
@@ -56,65 +46,80 @@ public class PTeamColor : NetworkBehaviour
         }
     }
 
-    // ============================
-    // SPAWNED
-    // ============================
 
     public override void Spawned()
     {
-        UpdateTeamColor();
+        initialized =
+            false;
 
-        if (team != null)
+        if (team == null)
         {
-            lastTeam =
-                team.CurrentTeam;
+            team =
+                GetComponent<PTeam>();
         }
 
-        initialized =
-            true;
+        TryUpdateTeamColor();
     }
 
-    // ============================
-    // RENDER
-    // ============================
 
     public override void Render()
     {
-        if (team == null)
+        if (!CanReadTeam())
             return;
 
+        PTeam.Team currentTeam =
+            team.CurrentTeam;
+
         if (!initialized ||
-            team.CurrentTeam != lastTeam)
+            currentTeam != lastTeam)
         {
-            UpdateTeamColor();
-
-            lastTeam =
-                team.CurrentTeam;
-
-            initialized =
-                true;
+            TryUpdateTeamColor();
         }
     }
 
-    // ============================
-    // UPDATE COLOR
-    // ============================
 
-    private void UpdateTeamColor()
+    public override void Despawned(
+        NetworkRunner runner,
+        bool hasState)
+    {
+        initialized =
+            false;
+    }
+
+
+    private bool CanReadTeam()
     {
         if (team == null)
-        {
-            Debug.LogWarning(
-                "PTEAM COLOR: PTeam no encontrado."
-            );
+            return false;
 
+        if (team.Object == null)
+            return false;
+
+        if (!team.Object.IsValid)
+            return false;
+
+        if (Object == null)
+            return false;
+
+        if (!Object.IsValid)
+            return false;
+
+        return true;
+    }
+
+
+    private void TryUpdateTeamColor()
+    {
+        if (!CanReadTeam())
             return;
-        }
 
         if (capsuleRenderer == null)
         {
             Debug.LogWarning(
-                "PTEAM COLOR: Renderer de la cápsula no asignado."
+                $"PTEAM COLOR: " +
+                $"Capsule Renderer no asignado | " +
+                $"Player: " +
+                $"{Object.InputAuthority.PlayerId}"
             );
 
             return;
@@ -126,7 +131,10 @@ public class PTeamColor : NetworkBehaviour
                 capsuleRenderer.material;
         }
 
-        switch (team.CurrentTeam)
+        PTeam.Team currentTeam =
+            team.CurrentTeam;
+
+        switch (currentTeam)
         {
             case PTeam.Team.Red:
 
@@ -142,5 +150,18 @@ public class PTeamColor : NetworkBehaviour
 
                 break;
         }
+
+        lastTeam =
+            currentTeam;
+
+        initialized =
+            true;
+
+        Debug.Log(
+            $"TEAM COLOR UPDATED | " +
+            $"Player: " +
+            $"{Object.InputAuthority.PlayerId} | " +
+            $"Team: {currentTeam}"
+        );
     }
 }

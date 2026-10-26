@@ -4,69 +4,93 @@ using UnityEngine;
 
 public class PSniper : NetworkBehaviour
 {
-    [Header("Referencias")]
-    [SerializeField] private Camera playerCamera;
-    [SerializeField] private Transform firePoint;
 
-    // ============================
-    // SNIPER
-    // ============================
+    [Header("Referencias")]
+    [SerializeField]
+    private Camera playerCamera;
+
+    [SerializeField]
+    private Transform firePoint;
+
 
     [Header("Sniper")]
-    [SerializeField] private float range = 200f;
-    [SerializeField] private int damage = 75;
+    [SerializeField]
+    private float range = 200f;
 
-    // ============================
-    // CADENCIA
-    // ============================
+    [SerializeField]
+    private int damage = 75;
+
 
     [Header("Cadencia")]
-    [SerializeField] private float timeBetweenShots = 1f;
+    [SerializeField]
+    private float timeBetweenShots = 1f;
 
-    // ============================
-    // RECARGA
-    // ============================
 
     [Header("Recarga")]
-    [SerializeField] private float reloadTime = 2.8f;
+    [SerializeField]
+    private float reloadTime = 2.8f;
 
-    // ============================
-    // DISPERSIÓN
-    // ============================
 
     [Header("Dispersión")]
-    [SerializeField] private float spread = 0.002f;
+    [SerializeField]
+    private float spread = 0.002f;
 
-    // ============================
-    // TRACER
-    // ============================
 
     [Header("Tracer")]
-    [SerializeField] private Material tracerMaterial;
-    [SerializeField] private Color tracerColor = Color.white;
-    [SerializeField] private float tracerDuration = 0.35f;
-    [SerializeField] private float tracerWidth = 0.02f;
+    [SerializeField]
+    private Material tracerMaterial;
+
+    [SerializeField]
+    private Color tracerColor = Color.white;
+
+    [SerializeField]
+    private float tracerDuration = 0.35f;
+
+    [SerializeField]
+    private float tracerWidth = 0.02f;
 
     [Header("Origen visual del tracer")]
-    [SerializeField] private float tracerForwardOffset = 0.5f;
-    [SerializeField] private float tracerDownOffset = 0.15f;
+    [SerializeField]
+    private float tracerForwardOffset = 0.5f;
 
-    [SerializeField] private ParticleSystem muzzleFlash;
+    [SerializeField]
+    private float tracerDownOffset = 0.15f;
 
-    // ============================
-    // REFERENCIAS INTERNAS
-    // ============================
+    [SerializeField]
+    private ParticleSystem muzzleFlash;
+
+
+    [Networked]
+    private NetworkBool IsReloadingNetworked
+    {
+        get;
+        set;
+    }
+
+    [Networked]
+    private TickTimer ReloadTimer
+    {
+        get;
+        set;
+    }
+
+    [Networked]
+    private TickTimer ShotCooldown
+    {
+        get;
+        set;
+    }
+
 
     private PWeaponInventory weaponInventory;
 
-    private bool isReloading;
-    private float nextShotTime;
+    private PHealth health;
 
-    // ============================
-    // DATOS PÚBLICOS PARA HUD
-    // ============================
+    private NetworkGameManager gameManager;
 
-    public bool IsReloading => isReloading;
+
+    public bool IsReloading =>
+        IsReloadingNetworked;
 
     public float TimeBetweenShots =>
         timeBetweenShots;
@@ -77,30 +101,99 @@ public class PSniper : NetworkBehaviour
     public float Range =>
         range;
 
-    // ============================
-    // AWAKE
-    // ============================
 
     private void Awake()
     {
         weaponInventory =
             GetComponent<PWeaponInventory>();
+
+        health =
+            GetComponent<PHealth>();
     }
 
-    // ============================
-    // UPDATE
-    // ============================
+
+    public override void Spawned()
+    {
+        if (weaponInventory == null)
+        {
+            weaponInventory =
+                GetComponent<PWeaponInventory>();
+        }
+
+        if (health == null)
+        {
+            health =
+                GetComponent<PHealth>();
+        }
+
+        if (playerCamera == null &&
+            Object.HasInputAuthority)
+        {
+            playerCamera =
+                GetComponentInChildren<Camera>(
+                    true
+                );
+        }
+
+        gameManager =
+            FindFirstObjectByType<
+                NetworkGameManager
+            >();
+
+        if (Object.HasStateAuthority)
+        {
+            IsReloadingNetworked =
+                false;
+
+            ReloadTimer =
+                TickTimer.None;
+
+            ShotCooldown =
+                TickTimer.None;
+        }
+
+        Debug.Log(
+            $"SNIPER READY | " +
+            $"PLAYER: {Object.InputAuthority.PlayerId} | " +
+            $"STATE: {Object.HasStateAuthority} | " +
+            $"INPUT: {Object.HasInputAuthority}"
+        );
+    }
+
 
     private void Update()
     {
-        if (Object == null ||
-            !Object.HasStateAuthority)
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
+
+        if (!Object.HasInputAuthority)
+            return;
+
+
+        if (health == null)
+        {
+            health =
+                GetComponent<PHealth>();
+        }
+
+        if (health != null &&
+            health.IsDead)
         {
             return;
         }
 
-        NetworkGameManager gameManager =
-            FindFirstObjectByType<NetworkGameManager>();
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
 
         if (gameManager == null ||
             !gameManager.CanPlay)
@@ -108,97 +201,67 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
+
+        if (weaponInventory == null)
+        {
+            weaponInventory =
+                GetComponent<PWeaponInventory>();
+        }
+
         if (weaponInventory == null)
             return;
 
-        // Solo funciona si SNIPER
-        // está seleccionada.
-        if (!weaponInventory.IsSniperEquipped())
-            return;
-
-        // -------------------------
-        // RECARGA MANUAL
-        // -------------------------
-
-        if (Input.GetKeyDown(KeyCode.R))
+        if (!weaponInventory
+            .IsSniperEquipped())
         {
-            TryReload();
+            return;
         }
 
-        // Mientras recarga
-        // no puede disparar.
-        if (isReloading)
+
+        if (Input.GetKeyDown(
+            KeyCode.R))
+        {
+            RequestReload();
+        }
+
+
+        if (IsReloadingNetworked)
             return;
 
-        // -------------------------
-        // DISPARO
-        // -------------------------
 
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(
+            0))
         {
-            TryShoot();
+            RequestShoot();
         }
     }
 
-    // ============================
-    // INTENTAR DISPARAR
-    // ============================
 
-    private void TryShoot()
+    public override void FixedUpdateNetwork()
     {
-        // Sin balas cargadas.
-        if (weaponInventory.SniperLoaded <= 0)
-        {
-            TryReload();
+        if (!Object.HasStateAuthority)
             return;
-        }
 
-        // Todavía estamos dentro
-        // del cooldown entre tiros.
-        if (Time.time < nextShotTime)
+        if (IsReloadingNetworked &&
+            ReloadTimer.IsRunning &&
+            ReloadTimer.Expired(
+                Runner))
         {
-            return;
-        }
-
-        // Marcamos cuándo se puede
-        // volver a disparar.
-        nextShotTime =
-            Time.time +
-            timeBetweenShots;
-
-        // Consumimos una bala.
-        weaponInventory.SniperLoaded--;
-
-        Shoot();
-
-        Debug.Log(
-            $"SNIPER FIRE | " +
-            $"Cargadas: {weaponInventory.SniperLoaded} | " +
-            $"Reserva: {weaponInventory.SniperReserve}"
-        );
-
-        // Si vaciamos el cargador,
-        // recarga automática.
-        if (weaponInventory.SniperLoaded <= 0)
-        {
-            TryReload();
+            CompleteReloadAuthoritative();
         }
     }
 
-    // ============================
-    // DISPARO
-    // ============================
 
-    private void Shoot()
+    private void RequestShoot()
     {
-        if (muzzleFlash != null)
-        {
-            muzzleFlash.Play();
-        }
+        if (!Object.HasInputAuthority)
+            return;
+
         if (playerCamera == null)
         {
             Debug.LogError(
-                "PSniper: Player Camera no está asignada."
+                "PSniper: " +
+                "Player Camera no está asignada."
             );
 
             return;
@@ -207,22 +270,17 @@ public class PSniper : NetworkBehaviour
         if (firePoint == null)
         {
             Debug.LogError(
-                "PSniper: Fire Point no está asignado."
+                "PSniper: " +
+                "Fire Point no está asignado."
             );
 
             return;
         }
 
-        // -------------------------
-        // DIRECCIÓN BASE
-        // -------------------------
-
         Vector3 shotDirection =
-            playerCamera.transform.forward;
-
-        // -------------------------
-        // DISPERSIÓN
-        // -------------------------
+            playerCamera
+                .transform
+                .forward;
 
         float randomHorizontal =
             Random.Range(
@@ -237,23 +295,148 @@ public class PSniper : NetworkBehaviour
             );
 
         shotDirection +=
-            playerCamera.transform.right *
+            playerCamera
+                .transform
+                .right *
             randomHorizontal;
 
         shotDirection +=
-            playerCamera.transform.up *
+            playerCamera
+                .transform
+                .up *
             randomVertical;
 
         shotDirection.Normalize();
 
-        // -------------------------
-        // RAYCAST DESDE FIRE POINT
-        // -------------------------
+        Vector3 shotOrigin =
+            firePoint.position;
 
-        Ray ray = new Ray(
-            firePoint.position,
+
+        if (Object.HasStateAuthority)
+        {
+            ProcessShootAuthoritative(
+                shotOrigin,
+                shotDirection
+            );
+
+            return;
+        }
+
+
+        RPC_RequestShoot(
+            shotOrigin,
             shotDirection
         );
+    }
+
+
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority
+    )]
+    private void RPC_RequestShoot(
+        Vector3 shotOrigin,
+        Vector3 shotDirection)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        ProcessShootAuthoritative(
+            shotOrigin,
+            shotDirection
+        );
+    }
+
+
+    private void ProcessShootAuthoritative(
+        Vector3 shotOrigin,
+        Vector3 shotDirection)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null ||
+            !gameManager.CanPlay)
+        {
+            return;
+        }
+
+
+        if (health == null)
+        {
+            health =
+                GetComponent<PHealth>();
+        }
+
+        if (health != null &&
+            health.IsDead)
+        {
+            return;
+        }
+
+
+        if (weaponInventory == null)
+        {
+            weaponInventory =
+                GetComponent<PWeaponInventory>();
+        }
+
+        if (weaponInventory == null)
+            return;
+
+        if (!weaponInventory
+            .IsSniperEquipped())
+        {
+            return;
+        }
+
+
+        if (IsReloadingNetworked)
+            return;
+
+
+        if (ShotCooldown.IsRunning &&
+            !ShotCooldown.Expired(
+                Runner))
+        {
+            return;
+        }
+
+
+        if (weaponInventory
+            .SniperLoaded <= 0)
+        {
+            StartReloadAuthoritative();
+
+            return;
+        }
+
+
+        weaponInventory
+            .SniperLoaded--;
+
+
+        ShotCooldown =
+            TickTimer.CreateFromSeconds(
+                Runner,
+                timeBetweenShots
+            );
+
+
+        Ray ray =
+            new Ray(
+                shotOrigin,
+                shotDirection.normalized
+            );
 
         Vector3 tracerEndPoint;
 
@@ -266,18 +449,25 @@ public class PSniper : NetworkBehaviour
                 hit.point;
 
             Debug.Log(
-                $"SNIPER HIT: {hit.collider.name}"
+                $"SNIPER HIT | " +
+                $"Player: " +
+                $"{Object.InputAuthority.PlayerId} | " +
+                $"Target: {hit.collider.name}"
             );
 
-            PHealth health =
-                hit.collider.GetComponentInParent<PHealth>();
+            PHealth targetHealth =
+                hit.collider
+                    .GetComponentInParent<
+                        PHealth
+                    >();
 
-            if (health != null)
+            if (targetHealth != null)
             {
-                health.RPC_TakeDamage(
-                    damage,
-                    Object
-                );
+                targetHealth
+                    .RPC_TakeDamage(
+                        damage,
+                        Object
+                    );
             }
         }
         else
@@ -288,39 +478,109 @@ public class PSniper : NetworkBehaviour
                 range;
         }
 
-        // -------------------------
-        // ORIGEN DEL TRACER
-        // -------------------------
 
-        Vector3 tracerStart =
-            firePoint.position;
+        RPC_PlayShotEffects(
+            shotOrigin,
+            tracerEndPoint
+        );
+
+        Debug.Log(
+            $"SNIPER FIRE | " +
+            $"Player: " +
+            $"{Object.InputAuthority.PlayerId} | " +
+            $"Loaded: " +
+            $"{weaponInventory.SniperLoaded} | " +
+            $"Reserve: " +
+            $"{weaponInventory.SniperReserve}"
+        );
+
+
+        if (weaponInventory
+            .SniperLoaded <= 0)
+        {
+            StartReloadAuthoritative();
+        }
+    }
+
+
+    [Rpc(
+        RpcSources.StateAuthority,
+        RpcTargets.All
+    )]
+    private void RPC_PlayShotEffects(
+        Vector3 tracerStart,
+        Vector3 tracerEnd)
+    {
+        if (muzzleFlash != null)
+        {
+            muzzleFlash.Play();
+        }
 
         StartCoroutine(
             ShowTracer(
                 tracerStart,
-                tracerEndPoint
+                tracerEnd
             )
         );
     }
 
-    // ============================
-    // RECARGA
-    // ============================
 
-    private void TryReload()
+    private void RequestReload()
     {
-        if (isReloading)
+        if (!Object.HasInputAuthority)
             return;
 
-        // Cargador lleno.
-        if (weaponInventory.SniperLoaded >=
-            weaponInventory.SniperMagazineSize)
+        if (Object.HasStateAuthority)
+        {
+            StartReloadAuthoritative();
+
+            return;
+        }
+
+        RPC_RequestReload();
+    }
+
+
+    [Rpc(
+        RpcSources.InputAuthority,
+        RpcTargets.StateAuthority
+    )]
+    private void RPC_RequestReload()
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        StartReloadAuthoritative();
+    }
+
+
+    private void StartReloadAuthoritative()
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (weaponInventory == null)
+        {
+            weaponInventory =
+                GetComponent<PWeaponInventory>();
+        }
+
+        if (weaponInventory == null)
+            return;
+
+        if (IsReloadingNetworked)
+            return;
+
+        if (weaponInventory
+                .SniperLoaded >=
+            weaponInventory
+                .SniperMagazineSize)
         {
             return;
         }
 
-        // Sin reserva.
-        if (weaponInventory.SniperReserve <= 0)
+        if (weaponInventory
+            .SniperReserve <= 0)
         {
             Debug.Log(
                 "SNIPER SIN MUNICIÓN DE RESERVA"
@@ -329,56 +589,90 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
-        StartCoroutine(
-            ReloadRoutine()
-        );
-    }
+        IsReloadingNetworked =
+            true;
 
-    private IEnumerator ReloadRoutine()
-    {
-        if (isReloading)
-            yield break;
-
-        isReloading = true;
+        ReloadTimer =
+            TickTimer.CreateFromSeconds(
+                Runner,
+                reloadTime
+            );
 
         Debug.Log(
             $"SNIPER RELOADING... | " +
-            $"Cargadas: {weaponInventory.SniperLoaded} | " +
-            $"Reserva: {weaponInventory.SniperReserve}"
+            $"Player: " +
+            $"{Object.InputAuthority.PlayerId} | " +
+            $"Loaded: " +
+            $"{weaponInventory.SniperLoaded} | " +
+            $"Reserve: " +
+            $"{weaponInventory.SniperReserve}"
         );
+    }
 
-        yield return new WaitForSeconds(
-            reloadTime
-        );
+
+    private void CompleteReloadAuthoritative()
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (!IsReloadingNetworked)
+            return;
+
+        if (weaponInventory == null)
+        {
+            weaponInventory =
+                GetComponent<PWeaponInventory>();
+        }
+
+        if (weaponInventory == null)
+        {
+            IsReloadingNetworked =
+                false;
+
+            ReloadTimer =
+                TickTimer.None;
+
+            return;
+        }
 
         int bulletsNeeded =
-            weaponInventory.SniperMagazineSize -
-            weaponInventory.SniperLoaded;
+            weaponInventory
+                .SniperMagazineSize -
+            weaponInventory
+                .SniperLoaded;
 
         int bulletsToLoad =
             Mathf.Min(
                 bulletsNeeded,
-                weaponInventory.SniperReserve
+                weaponInventory
+                    .SniperReserve
             );
 
-        weaponInventory.SniperLoaded +=
+        weaponInventory
+            .SniperLoaded +=
             bulletsToLoad;
 
-        weaponInventory.SniperReserve -=
+        weaponInventory
+            .SniperReserve -=
             bulletsToLoad;
 
-        isReloading = false;
+        IsReloadingNetworked =
+            false;
+
+        ReloadTimer =
+            TickTimer.None;
 
         Debug.Log(
             $"SNIPER RELOAD COMPLETE | " +
-            $"Cargadas: {weaponInventory.SniperLoaded} | " +
-            $"Reserva: {weaponInventory.SniperReserve}"
+            $"Player: " +
+            $"{Object.InputAuthority.PlayerId} | " +
+            $"Loaded: " +
+            $"{weaponInventory.SniperLoaded} | " +
+            $"Reserve: " +
+            $"{weaponInventory.SniperReserve}"
         );
     }
 
-    // ============================
-    // TRACER
-    // ============================
 
     private IEnumerator ShowTracer(
         Vector3 start,
@@ -390,9 +684,13 @@ public class PSniper : NetworkBehaviour
             );
 
         LineRenderer lineRenderer =
-            tracerObject.AddComponent<LineRenderer>();
+            tracerObject
+                .AddComponent<
+                    LineRenderer
+                >();
 
-        lineRenderer.positionCount = 2;
+        lineRenderer.positionCount =
+            2;
 
         lineRenderer.SetPosition(
             0,
@@ -416,10 +714,6 @@ public class PSniper : NetworkBehaviour
         lineRenderer.endColor =
             tracerColor;
 
-        // -------------------------
-        // MATERIAL
-        // -------------------------
-
         if (tracerMaterial != null)
         {
             lineRenderer.material =
@@ -441,9 +735,10 @@ public class PSniper : NetworkBehaviour
                 fallbackMaterial;
         }
 
-        yield return new WaitForSeconds(
-            tracerDuration
-        );
+        yield return
+            new WaitForSeconds(
+                tracerDuration
+            );
 
         Destroy(
             tracerObject

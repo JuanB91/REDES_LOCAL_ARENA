@@ -5,94 +5,134 @@ using UnityEngine;
 
 public class RocketProjectile : NetworkBehaviour
 {
-    // ============================
-    // MOVIMIENTO
-    // ============================
 
     [Header("Movimiento")]
-    [SerializeField] private float speed = 35f;
+    [SerializeField]
+    private float speed = 35f;
 
-    // ============================
-    // DAÑO DIRECTO
-    // ============================
 
     [Header("Daño Directo")]
-    [SerializeField] private int directDamage = 80;
+    [SerializeField]
+    private int directDamage = 80;
 
-    // ============================
-    // EXPLOSIÓN
-    // ============================
 
     [Header("Explosión")]
-    [SerializeField] private float explosionRadius = 5f;
+    [SerializeField]
+    private float explosionRadius = 5f;
 
-    [SerializeField] private int maxExplosionDamage = 60;
+    [SerializeField]
+    private int maxExplosionDamage = 60;
 
-    [SerializeField] private int minExplosionDamage = 0;
+    [SerializeField]
+    private int minExplosionDamage = 0;
 
-    // ============================
-    // DEBUG VISUAL
-    // ============================
 
     [Header("Debug Visual")]
-    [SerializeField] private Transform visualObject;
+    [SerializeField]
+    private Transform visualObject;
 
-    [SerializeField] private float debugExplosionDuration = 0.5f;
+    [SerializeField]
+    private float debugExplosionDuration = 0.5f;
 
-    [SerializeField] private bool showDebugExplosion = true;
+    [SerializeField]
+    private bool showDebugExplosion = true;
 
-    // ============================
-    // DEBUG
-    // ============================
 
     [Header("Debug")]
-    [SerializeField] private bool showDebug = true;
+    [SerializeField]
+    private bool showDebug = true;
 
-    // ============================
-    // SHOOTER
-    // ============================
 
     private NetworkObject shooter;
 
-    // ============================
-    // ESTADO
-    // ============================
 
-    private bool hasExploded = false;
-
-    // ============================
-    // INICIALIZAR
-    // ============================
-
-    public void Initialize(
-        NetworkObject shooterObject)
+    [Networked]
+    private NetworkBool HasExploded
     {
-        shooter =
-            shooterObject;
+        get;
+        set;
+    }
+
+    [Networked]
+    private NetworkBool HasBeenInitialized
+    {
+        get;
+        set;
+    }
+
+
+    public override void Spawned()
+    {
+        if (Object.HasStateAuthority)
+        {
+            HasExploded =
+                false;
+
+            HasBeenInitialized =
+                false;
+        }
 
         if (showDebug)
         {
             Debug.Log(
-                $"ROCKET INICIALIZADO | " +
-                $"Shooter: {(shooter != null ? shooter.name : "NULL")}"
+                $"ROCKET PROJECTILE SPAWNED | " +
+                $"STATE: {Object.HasStateAuthority} | " +
+                $"INPUT: {Object.HasInputAuthority}"
             );
         }
     }
 
-    // ============================
-    // MOVIMIENTO
-    // ============================
 
-    public override void FixedUpdateNetwork()
+    public void Initialize(
+        NetworkObject shooterObject)
     {
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
-        if (hasExploded)
+        if (HasBeenInitialized)
+            return;
+
+        shooter =
+            shooterObject;
+
+        HasBeenInitialized =
+            true;
+
+        if (showDebug)
+        {
+            string shooterName =
+                shooter != null
+                    ? shooter.name
+                    : "NULL";
+
+            Debug.Log(
+                $"ROCKET INITIALIZED | " +
+                $"Shooter: {shooterName} | " +
+                $"Player: {GetShooterId()}"
+            );
+        }
+    }
+
+
+    public override void FixedUpdateNetwork()
+    {
+
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (HasExploded)
             return;
 
         MoveRocket();
     }
+
 
     private void MoveRocket()
     {
@@ -105,56 +145,83 @@ public class RocketProjectile : NetworkBehaviour
             movement;
     }
 
-    // ============================
-    // IMPACTO
-    // ============================
 
     private void OnTriggerEnter(
         Collider other)
     {
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
-        if (hasExploded)
+        if (HasExploded)
             return;
 
         if (other == null)
             return;
 
-        // Evitar partes del propio cohete
-        if (other.transform.IsChildOf(transform))
+
+        if (other.transform.IsChildOf(
+            transform))
+        {
             return;
+        }
+
+
+        if (shooter != null &&
+            shooter.IsValid)
+        {
+            if (other.transform.IsChildOf(
+                shooter.transform))
+            {
+                return;
+            }
+        }
 
         if (showDebug)
         {
             Debug.Log(
-                $"ROCKET IMPACTÓ CONTRA: " +
+                $"ROCKET IMPACTED: " +
                 $"{other.gameObject.name}"
             );
         }
 
+
         PHealth directTarget =
-            other.GetComponentInParent<PHealth>();
+            other
+                .GetComponentInParent<
+                    PHealth
+                >();
 
         Explode(
             directTarget
         );
     }
 
-    // ============================
-    // EXPLOSIÓN
-    // ============================
 
     private void Explode(
         PHealth directTarget)
     {
+
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
-        if (hasExploded)
+        if (HasExploded)
             return;
 
-        hasExploded = true;
+        HasExploded =
+            true;
 
         Vector3 explosionPosition =
             transform.position;
@@ -162,49 +229,52 @@ public class RocketProjectile : NetworkBehaviour
         if (showDebug)
         {
             Debug.Log(
-                $"ROCKET EXPLOTA EN: " +
-                $"{explosionPosition}"
+                $"ROCKET EXPLODES | " +
+                $"Player: {GetShooterId()} | " +
+                $"Position: {explosionPosition}"
             );
         }
 
-        // ============================
-        // DAÑO DIRECTO
-        // ============================
 
         if (directTarget != null)
         {
-            if (showDebug)
+            if (directTarget.Object != null &&
+                directTarget.Object.IsValid)
             {
-                Debug.Log(
-                    $"ROCKET DIRECT HIT | " +
-                    $"Target: {directTarget.gameObject.name} | " +
-                    $"Damage: {directDamage}"
-                );
-            }
+                if (showDebug)
+                {
+                    Debug.Log(
+                        $"ROCKET DIRECT HIT | " +
+                        $"Target: " +
+                        $"{directTarget.gameObject.name} | " +
+                        $"Damage: {directDamage}"
+                    );
+                }
 
-            directTarget.RPC_TakeDamage(
-                directDamage,
-                shooter
-            );
+                directTarget
+                    .RPC_TakeDamage(
+                        directDamage,
+                        shooter
+                    );
+            }
         }
 
-        // ============================
-        // DAÑO EN ÁREA
-        // ============================
 
         ApplyExplosionDamage(
             explosionPosition,
             directTarget
         );
 
-        // ============================
-        // DEBUG DE EXPLOSIÓN
-        // ============================
+
+        RPC_PlayExplosionVisual(
+            explosionPosition
+        );
+
 
         if (showDebugExplosion)
         {
             StartCoroutine(
-                DebugExplosionCoroutine()
+                DespawnAfterExplosionDelay()
             );
         }
         else
@@ -213,43 +283,61 @@ public class RocketProjectile : NetworkBehaviour
         }
     }
 
-    // ============================
-    // SPLASH DAMAGE
-    // ============================
 
     private void ApplyExplosionDamage(
         Vector3 explosionPosition,
         PHealth directTarget)
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         Collider[] colliders =
             Physics.OverlapSphere(
                 explosionPosition,
                 explosionRadius
             );
 
-        Dictionary<PHealth, float> targets =
-            new Dictionary<PHealth, float>();
+        Dictionary<PHealth, float>
+            targets =
+                new Dictionary<
+                    PHealth,
+                    float
+                >();
 
-        foreach (Collider hitCollider in colliders)
+        foreach (
+            Collider hitCollider
+            in colliders)
         {
             if (hitCollider == null)
                 continue;
 
             PHealth health =
-                hitCollider.GetComponentInParent<PHealth>();
+                hitCollider
+                    .GetComponentInParent<
+                        PHealth
+                    >();
 
             if (health == null)
                 continue;
 
-            // El que recibió impacto directo
-            // no recibe splash extra.
-            if (health == directTarget)
+            if (health.Object == null)
                 continue;
 
+            if (!health.Object.IsValid)
+                continue;
+
+            if (health ==
+                directTarget)
+            {
+                continue;
+            }
+
+
             Vector3 closestPoint =
-                hitCollider.ClosestPoint(
-                    explosionPosition
-                );
+                hitCollider
+                    .ClosestPoint(
+                        explosionPosition
+                    );
 
             float distance =
                 Vector3.Distance(
@@ -257,9 +345,11 @@ public class RocketProjectile : NetworkBehaviour
                     closestPoint
                 );
 
-            if (targets.ContainsKey(health))
+            if (targets.ContainsKey(
+                health))
             {
-                if (distance < targets[health])
+                if (distance <
+                    targets[health])
                 {
                     targets[health] =
                         distance;
@@ -274,8 +364,10 @@ public class RocketProjectile : NetworkBehaviour
             }
         }
 
+
         foreach (
-            KeyValuePair<PHealth, float> target
+            KeyValuePair<PHealth, float>
+                target
             in targets)
         {
             PHealth health =
@@ -292,19 +384,25 @@ public class RocketProjectile : NetworkBehaviour
             if (explosionDamage <= 0)
                 continue;
 
+            bool isShooter =
+                shooter != null &&
+                shooter.IsValid &&
+                health.gameObject ==
+                shooter.gameObject;
+
             if (showDebug)
             {
-                bool isShooter =
-                    shooter != null &&
-                    health.gameObject ==
-                    shooter.gameObject;
-
                 Debug.Log(
                     $"ROCKET SPLASH | " +
-                    $"Target: {health.gameObject.name} | " +
+                    $"Target: " +
+                    $"{health.gameObject.name} | " +
                     $"Distance: {distance:F2} | " +
                     $"Damage: {explosionDamage}" +
-                    (isShooter ? " | SELF DAMAGE" : "")
+                    (
+                        isShooter
+                            ? " | SELF DAMAGE"
+                            : ""
+                    )
                 );
             }
 
@@ -315,13 +413,16 @@ public class RocketProjectile : NetworkBehaviour
         }
     }
 
-    // ============================
-    // CALCULAR DAÑO
-    // ============================
 
     private int CalculateExplosionDamage(
         float distance)
     {
+        if (explosionRadius <= 0f)
+        {
+            return
+                maxExplosionDamage;
+        }
+
         distance =
             Mathf.Clamp(
                 distance,
@@ -333,27 +434,46 @@ public class RocketProjectile : NetworkBehaviour
             distance /
             explosionRadius;
 
-        float damage =
+        float calculatedDamage =
             Mathf.Lerp(
                 maxExplosionDamage,
                 minExplosionDamage,
                 normalizedDistance
             );
 
-        return Mathf.RoundToInt(
-            damage
+        return
+            Mathf.RoundToInt(
+                calculatedDamage
+            );
+    }
+
+
+    [Rpc(
+        RpcSources.StateAuthority,
+        RpcTargets.All
+    )]
+    private void RPC_PlayExplosionVisual(
+        Vector3 explosionPosition)
+    {
+        if (!showDebugExplosion)
+            return;
+
+        StartCoroutine(
+            DebugExplosionVisualCoroutine(
+                explosionPosition
+            )
         );
     }
 
-    // ============================
-    // DEBUG EXPLOSIÓN VISUAL
-    // ============================
 
-    private IEnumerator DebugExplosionCoroutine()
+    private IEnumerator
+        DebugExplosionVisualCoroutine(
+            Vector3 explosionPosition)
     {
-        // Desactivamos el collider para que
-        // la esfera gigante no genere
-        // nuevos impactos.
+        transform.position =
+            explosionPosition;
+
+
         Collider rocketCollider =
             GetComponent<Collider>();
 
@@ -363,14 +483,12 @@ public class RocketProjectile : NetworkBehaviour
                 false;
         }
 
-        // ============================
-        // AGRANDAR VISUAL
-        // ============================
 
         if (visualObject != null)
         {
             float diameter =
-                explosionRadius * 2f;
+                explosionRadius *
+                2f;
 
             visualObject.localScale =
                 new Vector3(
@@ -382,41 +500,77 @@ public class RocketProjectile : NetworkBehaviour
         else
         {
             Debug.LogWarning(
-                "ROCKET: No hay Visual Object asignado para mostrar el área de explosión."
+                "ROCKET: " +
+                "No hay Visual Object asignado " +
+                "para mostrar el área de explosión."
             );
         }
 
         if (showDebug)
         {
             Debug.Log(
-                $"DEBUG EXPLOSION | " +
-                $"Radio: {explosionRadius} | " +
-                $"Diámetro visual: {explosionRadius * 2f}"
+                $"ROCKET DEBUG EXPLOSION | " +
+                $"Radius: {explosionRadius} | " +
+                $"Diameter: " +
+                $"{explosionRadius * 2f}"
             );
         }
 
-        // Mantener visible la explosión
-        yield return new WaitForSeconds(
-            debugExplosionDuration
-        );
+        yield return
+            new WaitForSeconds(
+                debugExplosionDuration
+            );
+    }
+
+
+    private IEnumerator
+        DespawnAfterExplosionDelay()
+    {
+        yield return
+            new WaitForSeconds(
+                debugExplosionDuration
+            );
 
         DespawnRocket();
     }
 
-    // ============================
-    // DESPAWN
-    // ============================
 
     private void DespawnRocket()
     {
+        if (Object == null)
+            return;
+
+        if (!Object.IsValid)
+            return;
+
         if (!Object.HasStateAuthority)
             return;
 
-        if (Object == null)
+        if (Runner == null)
             return;
 
         Runner.Despawn(
             Object
         );
+    }
+
+
+    private string GetShooterId()
+    {
+        if (shooter == null)
+        {
+            return "NONE";
+        }
+
+        if (!shooter.IsValid)
+        {
+            return "INVALID";
+        }
+
+        return
+            shooter
+                .InputAuthority
+                .PlayerId
+                .ToString();
     }
 }

@@ -3,15 +3,24 @@ using UnityEngine;
 
 public class GrenadePickup : NetworkBehaviour
 {
+    
     [Header("Pickup")]
-    [SerializeField] private int grenadeAmmoAmount = 2;
+    [SerializeField]
+    private int grenadeAmmoAmount = 2;
+
 
     [Header("Respawn")]
-    [SerializeField] private float respawnTime = 10f;
+    [SerializeField]
+    private float respawnTime = 10f;
+
 
     [Header("Referencias")]
-    [SerializeField] private GameObject visualObject;
-    [SerializeField] private Collider pickupCollider;
+    [SerializeField]
+    private GameObject visualObject;
+
+    [SerializeField]
+    private Collider pickupCollider;
+
 
     [Networked]
     private NetworkBool IsAvailable { get; set; }
@@ -19,72 +28,92 @@ public class GrenadePickup : NetworkBehaviour
     [Networked]
     private TickTimer RespawnTimer { get; set; }
 
-    // ============================
-    // SPAWN
-    // ============================
 
     public override void Spawned()
     {
         if (Object.HasStateAuthority)
         {
-            IsAvailable = true;
-            RespawnTimer = TickTimer.None;
+            IsAvailable =
+                true;
+
+            RespawnTimer =
+                TickTimer.None;
         }
 
         UpdateVisualState();
+
+        Debug.Log(
+            $"GRENADE PICKUP READY | " +
+            $"STATE AUTHORITY: {Object.HasStateAuthority}"
+        );
     }
 
-    // ============================
-    // TRIGGER
-    // ============================
 
-    private void OnTriggerEnter(Collider other)
+    private void OnTriggerEnter(
+        Collider other)
     {
-        Debug.Log(
-            $"GRENADE PICKUP detectó: {other.name}"
-        );
 
-        PWeaponInventory inventory =
-            other.GetComponentInParent<PWeaponInventory>();
-
-        if (inventory == null)
+        if (Object == null)
             return;
 
-        if (!inventory.Object.HasStateAuthority)
+        if (!Object.IsValid)
             return;
+
+        if (!Object.HasStateAuthority)
+            return;
+
 
         if (!IsAvailable)
             return;
 
-        // ============================
-        // AGREGAR GRANADAS
-        // ============================
+
+        PWeaponInventory inventory =
+            other
+                .GetComponentInParent<
+                    PWeaponInventory
+                >();
+
+        if (inventory == null)
+            return;
+
+        if (inventory.Object == null)
+            return;
+
+        if (!inventory.Object.IsValid)
+            return;
+
+        if (!inventory.Object
+            .HasStateAuthority)
+        {
+            return;
+        }
+
+        Debug.Log(
+            $"GRENADE PICKUP DETECTED | " +
+            $"Player: " +
+            $"{inventory.Object.InputAuthority.PlayerId}"
+        );
+
 
         inventory.AddGrenade(
             grenadeAmmoAmount
         );
 
-        // ============================
-        // DESACTIVAR PICKUP
-        // ============================
 
-        RPC_RequestPickup();
+        ConsumePickup();
     }
 
-    // ============================
-    // RPC PICKUP
-    // ============================
 
-    [Rpc(
-        RpcSources.All,
-        RpcTargets.StateAuthority
-    )]
-    private void RPC_RequestPickup()
+    private void ConsumePickup()
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         if (!IsAvailable)
             return;
 
-        IsAvailable = false;
+        IsAvailable =
+            false;
 
         RespawnTimer =
             TickTimer.CreateFromSeconds(
@@ -93,59 +122,73 @@ public class GrenadePickup : NetworkBehaviour
             );
 
         Debug.Log(
-            $"GRENADE PICKUP RECOGIDO | " +
-            $"Respawn en {respawnTime} segundos."
+            $"GRENADE PICKUP CONSUMED | " +
+            $"RESPAWN IN: {respawnTime} SECONDS"
         );
     }
 
-    // ============================
-    // RESPAWN
-    // ============================
 
     public override void FixedUpdateNetwork()
     {
         if (!Object.HasStateAuthority)
             return;
 
-        if (!IsAvailable &&
-            RespawnTimer.Expired(Runner))
+        if (IsAvailable)
+            return;
+
+        if (!RespawnTimer.IsRunning)
+            return;
+
+        if (!RespawnTimer.Expired(
+            Runner))
         {
-            IsAvailable = true;
-
-            RespawnTimer =
-                TickTimer.None;
-
-            Debug.Log(
-                "GRENADE PICKUP DISPONIBLE NUEVAMENTE"
-            );
+            return;
         }
+
+        IsAvailable =
+            true;
+
+        RespawnTimer =
+            TickTimer.None;
+
+        Debug.Log(
+            "GRENADE PICKUP AVAILABLE AGAIN"
+        );
     }
 
-    // ============================
-    // VISUAL
-    // ============================
 
     public override void Render()
     {
         UpdateVisualState();
     }
 
+
     private void UpdateVisualState()
     {
         bool available =
             IsAvailable;
 
+
         if (visualObject != null)
         {
-            visualObject.SetActive(
-                available
-            );
+            if (visualObject.activeSelf !=
+                available)
+            {
+                visualObject.SetActive(
+                    available
+                );
+            }
         }
+
 
         if (pickupCollider != null)
         {
-            pickupCollider.enabled =
-                available;
+            if (pickupCollider.enabled !=
+                available)
+            {
+                pickupCollider.enabled =
+                    available;
+            }
         }
     }
 }
