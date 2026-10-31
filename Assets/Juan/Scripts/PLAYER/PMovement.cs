@@ -56,6 +56,9 @@ public class PMovement : NetworkBehaviour
     [Networked]
     private float MoveY { get; set; }
 
+    [Networked]
+    private NetworkBool IsJumping { get; set; }
+
 
     private CharacterController controller;
 
@@ -125,11 +128,11 @@ public class PMovement : NetworkBehaviour
 
         if (Object.HasStateAuthority)
         {
-            IsMoving =
-                false;
-
-            PreviousButtons =
-                default;
+            IsMoving = false;
+            IsJumping = false;
+            MoveX = 0f;
+            MoveY = 0f;
+            PreviousButtons = default;
         }
 
         Debug.Log(
@@ -241,6 +244,8 @@ public class PMovement : NetworkBehaviour
         {
             verticalVelocity =
                 jumpForce;
+
+            IsJumping = true;
         }
 
 
@@ -332,6 +337,11 @@ public class PMovement : NetworkBehaviour
             movement *
             Runner.DeltaTime
         );
+
+        if (IsJumping && controller.isGrounded && verticalVelocity <= 0f)
+        {
+            IsJumping = false;
+        }
     }
 
 
@@ -351,6 +361,7 @@ public class PMovement : NetworkBehaviour
 
         MoveX = 0f;
         MoveY = 0f;
+        IsJumping = false;
     }
 
 
@@ -472,6 +483,7 @@ public class PMovement : NetworkBehaviour
             animator.SetBool("IsMoving", IsMoving);
             animator.SetFloat("MoveX", MoveX);
             animator.SetFloat("MoveY", MoveY);
+            animator.SetBool("IsJumping", IsJumping);
         }
 
         if (footstepParticles == null)
