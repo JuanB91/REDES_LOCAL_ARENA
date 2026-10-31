@@ -53,6 +53,9 @@ public class PMovement : NetworkBehaviour
     [Networked]
     private float MoveX { get; set; }
 
+    [Networked]
+    private float MoveY { get; set; }
+
 
     private CharacterController controller;
 
@@ -296,6 +299,7 @@ public class PMovement : NetworkBehaviour
             input.MoveDirection;
 
         MoveX = moveInput.x;
+        MoveY = moveInput.y;
 
         Vector3 inputDirection =
             transform.forward *
@@ -344,6 +348,9 @@ public class PMovement : NetworkBehaviour
 
         ghostStepTimeRemaining =
             0f;
+
+        MoveX = 0f;
+        MoveY = 0f;
     }
 
 
@@ -464,6 +471,7 @@ public class PMovement : NetworkBehaviour
         {
             animator.SetBool("IsMoving", IsMoving);
             animator.SetFloat("MoveX", MoveX);
+            animator.SetFloat("MoveY", MoveY);
         }
 
         if (footstepParticles == null)
