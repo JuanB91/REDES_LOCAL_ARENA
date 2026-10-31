@@ -31,7 +31,11 @@ public class PMovement : NetworkBehaviour
     [SerializeField]
     private ParticleSystem footstepParticles;
 
-    
+
+    [Header("Animaciones")]
+    [SerializeField] private Animator animator;
+
+
     [Networked]
     private NetworkBool IsMoving
     {
@@ -45,6 +49,9 @@ public class PMovement : NetworkBehaviour
         get;
         set;
     }
+
+    [Networked]
+    private float MoveX { get; set; }
 
 
     private CharacterController controller;
@@ -74,6 +81,10 @@ public class PMovement : NetworkBehaviour
 
         health =
             GetComponent<PHealth>();
+
+
+        if (animator == null)
+            animator = GetComponentInChildren<Animator>();
     }
 
 
@@ -284,6 +295,8 @@ public class PMovement : NetworkBehaviour
         Vector2 moveInput =
             input.MoveDirection;
 
+        MoveX = moveInput.x;
+
         Vector3 inputDirection =
             transform.forward *
             moveInput.y +
@@ -447,6 +460,12 @@ public class PMovement : NetworkBehaviour
 
     public override void Render()
     {
+        if (animator != null)
+        {
+            animator.SetBool("IsMoving", IsMoving);
+            animator.SetFloat("MoveX", MoveX);
+        }
+
         if (footstepParticles == null)
             return;
 
