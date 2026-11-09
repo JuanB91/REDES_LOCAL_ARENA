@@ -1,17 +1,21 @@
 using System.Collections;
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PSniper : NetworkBehaviour
 {
-
-    [Header("Referencias")]
+    [Header("References")]
     [SerializeField]
     private Camera playerCamera;
 
     [SerializeField]
     private Transform firePoint;
 
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
 
     [Header("Sniper")]
     [SerializeField]
@@ -20,21 +24,17 @@ public class PSniper : NetworkBehaviour
     [SerializeField]
     private int damage = 75;
 
-
-    [Header("Cadencia")]
+    [Header("Fire Rate")]
     [SerializeField]
     private float timeBetweenShots = 1f;
 
-
-    [Header("Recarga")]
+    [Header("Reload")]
     [SerializeField]
     private float reloadTime = 2.8f;
 
-
-    [Header("Dispersión")]
+    [Header("Spread")]
     [SerializeField]
     private float spread = 0.002f;
-
 
     [Header("Tracer")]
     [SerializeField]
@@ -49,7 +49,7 @@ public class PSniper : NetworkBehaviour
     [SerializeField]
     private float tracerWidth = 0.02f;
 
-    [Header("Origen visual del tracer")]
+    [Header("Tracer Visual Origin")]
     [SerializeField]
     private float tracerForwardOffset = 0.5f;
 
@@ -58,7 +58,6 @@ public class PSniper : NetworkBehaviour
 
     [SerializeField]
     private ParticleSystem muzzleFlash;
-
 
     [Networked]
     private NetworkBool IsReloadingNetworked
@@ -81,13 +80,14 @@ public class PSniper : NetworkBehaviour
         set;
     }
 
-
     private PWeaponInventory weaponInventory;
 
     private PHealth health;
 
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
 
     public bool IsReloading =>
         IsReloadingNetworked;
@@ -101,7 +101,6 @@ public class PSniper : NetworkBehaviour
     public float Range =>
         range;
 
-
     private void Awake()
     {
         weaponInventory =
@@ -110,7 +109,6 @@ public class PSniper : NetworkBehaviour
         health =
             GetComponent<PHealth>();
     }
-
 
     public override void Spawned()
     {
@@ -140,6 +138,11 @@ public class PSniper : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         if (Object.HasStateAuthority)
         {
             IsReloadingNetworked =
@@ -156,10 +159,10 @@ public class PSniper : NetworkBehaviour
             $"SNIPER READY | " +
             $"PLAYER: {Object.InputAuthority.PlayerId} | " +
             $"STATE: {Object.HasStateAuthority} | " +
-            $"INPUT: {Object.HasInputAuthority}"
+            $"INPUT: {Object.HasInputAuthority} | " +
+            $"SCENE: {SceneManager.GetActiveScene().name}"
         );
     }
-
 
     private void Update()
     {
@@ -169,10 +172,8 @@ public class PSniper : NetworkBehaviour
         if (!Object.IsValid)
             return;
 
-
         if (!Object.HasInputAuthority)
             return;
-
 
         if (health == null)
         {
@@ -186,21 +187,10 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -217,17 +207,14 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
-
         if (Input.GetKeyDown(
             KeyCode.R))
         {
             RequestReload();
         }
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (Input.GetMouseButtonDown(
             0))
@@ -235,7 +222,6 @@ public class PSniper : NetworkBehaviour
             RequestShoot();
         }
     }
-
 
     public override void FixedUpdateNetwork()
     {
@@ -251,17 +237,86 @@ public class PSniper : NetworkBehaviour
         }
     }
 
+    // ============================
+    // CAN USE WEAPON
+    // ============================
+
+    private bool CanUseWeapon()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        if (!gameManager.CanPlay)
+        {
+            return false;
+        }
+
+        if (gameManager.IsReady &&
+            gameManager.GameOver)
+        {
+            return false;
+        }
+
+        return true;
+    }
 
     private void RequestShoot()
     {
         if (!Object.HasInputAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         if (playerCamera == null)
         {
             Debug.LogError(
                 "PSniper: " +
-                "Player Camera no está asignada."
+                "Player Camera is not assigned."
             );
 
             return;
@@ -271,7 +326,7 @@ public class PSniper : NetworkBehaviour
         {
             Debug.LogError(
                 "PSniper: " +
-                "Fire Point no está asignado."
+                "Fire Point is not assigned."
             );
 
             return;
@@ -311,7 +366,6 @@ public class PSniper : NetworkBehaviour
         Vector3 shotOrigin =
             firePoint.position;
 
-
         if (Object.HasStateAuthority)
         {
             ProcessShootAuthoritative(
@@ -322,13 +376,11 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
-
         RPC_RequestShoot(
             shotOrigin,
             shotDirection
         );
     }
-
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -347,7 +399,6 @@ public class PSniper : NetworkBehaviour
         );
     }
 
-
     private void ProcessShootAuthoritative(
         Vector3 shotOrigin,
         Vector3 shotDirection)
@@ -355,21 +406,10 @@ public class PSniper : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (health == null)
         {
@@ -382,7 +422,6 @@ public class PSniper : NetworkBehaviour
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -399,10 +438,8 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (ShotCooldown.IsRunning &&
             !ShotCooldown.Expired(
@@ -410,7 +447,6 @@ public class PSniper : NetworkBehaviour
         {
             return;
         }
-
 
         if (weaponInventory
             .SniperLoaded <= 0)
@@ -420,17 +456,14 @@ public class PSniper : NetworkBehaviour
             return;
         }
 
-
         weaponInventory
             .SniperLoaded--;
-
 
         ShotCooldown =
             TickTimer.CreateFromSeconds(
                 Runner,
                 timeBetweenShots
             );
-
 
         Ray ray =
             new Ray(
@@ -478,7 +511,6 @@ public class PSniper : NetworkBehaviour
                 range;
         }
 
-
         RPC_PlayShotEffects(
             shotOrigin,
             tracerEndPoint
@@ -494,14 +526,12 @@ public class PSniper : NetworkBehaviour
             $"{weaponInventory.SniperReserve}"
         );
 
-
         if (weaponInventory
             .SniperLoaded <= 0)
         {
             StartReloadAuthoritative();
         }
     }
-
 
     [Rpc(
         RpcSources.StateAuthority,
@@ -524,10 +554,12 @@ public class PSniper : NetworkBehaviour
         );
     }
 
-
     private void RequestReload()
     {
         if (!Object.HasInputAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (Object.HasStateAuthority)
@@ -540,7 +572,6 @@ public class PSniper : NetworkBehaviour
         RPC_RequestReload();
     }
 
-
     [Rpc(
         RpcSources.InputAuthority,
         RpcTargets.StateAuthority
@@ -550,13 +581,18 @@ public class PSniper : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         StartReloadAuthoritative();
     }
-
 
     private void StartReloadAuthoritative()
     {
         if (!Object.HasStateAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (weaponInventory == null)
@@ -583,7 +619,7 @@ public class PSniper : NetworkBehaviour
             .SniperReserve <= 0)
         {
             Debug.Log(
-                "SNIPER SIN MUNICIÓN DE RESERVA"
+                "SNIPER NO RESERVE AMMO"
             );
 
             return;
@@ -608,7 +644,6 @@ public class PSniper : NetworkBehaviour
             $"{weaponInventory.SniperReserve}"
         );
     }
-
 
     private void CompleteReloadAuthoritative()
     {
@@ -672,7 +707,6 @@ public class PSniper : NetworkBehaviour
             $"{weaponInventory.SniperReserve}"
         );
     }
-
 
     private IEnumerator ShowTracer(
         Vector3 start,

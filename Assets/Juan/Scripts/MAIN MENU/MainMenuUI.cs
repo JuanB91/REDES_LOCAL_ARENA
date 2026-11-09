@@ -5,7 +5,10 @@ using UnityEngine.UI;
 
 public class MainMenuUI : MonoBehaviour
 {
- 
+    // ============================
+    // PLAYER NAME
+    // ============================
+
     [Header("Player Name")]
 
     [SerializeField]
@@ -14,7 +17,10 @@ public class MainMenuUI : MonoBehaviour
     [SerializeField]
     private int maxNameLength = 16;
 
-    
+    // ============================
+    // FRIENDLY FIRE
+    // ============================
+
     [Header("Friendly Fire")]
 
     [SerializeField]
@@ -33,20 +39,42 @@ public class MainMenuUI : MonoBehaviour
     private Color friendlyFireOnColor =
         Color.green;
 
-    
+    // ============================
+    // GAME MODE
+    // ============================
+
+    [Header("Game Mode")]
+
+    [SerializeField]
+    private Button gameModeButton;
+
+    [SerializeField]
+    private TMP_Text gameModeText;
+
+    // ============================
+    // SCENE
+    // ============================
+
     [Header("Scene")]
 
     [SerializeField]
     private string waitingSceneName =
         "WAITING";
 
-    
+    // ============================
+    // RUNTIME
+    // ============================
+
     private bool isLoading;
 
-    
+    // ============================
+    // START
+    // ============================
+
     private void Start()
     {
-        isLoading = false;
+        isLoading =
+            false;
 
         Cursor.lockState =
             CursorLockMode.None;
@@ -54,7 +82,10 @@ public class MainMenuUI : MonoBehaviour
         Cursor.visible =
             true;
 
-        
+        // ============================
+        // PLAYER NAME
+        // ============================
+
         if (playerNameInput != null)
         {
             playerNameInput.characterLimit =
@@ -63,7 +94,8 @@ public class MainMenuUI : MonoBehaviour
             if (!string.IsNullOrWhiteSpace(
                     PlayerProfile.PlayerName
                 ) &&
-                PlayerProfile.PlayerName != "PLAYER")
+                PlayerProfile.PlayerName !=
+                "PLAYER")
             {
                 playerNameInput.text =
                     PlayerProfile.PlayerName;
@@ -75,17 +107,33 @@ public class MainMenuUI : MonoBehaviour
             }
         }
 
+        // ============================
+        // FRIENDLY FIRE DEFAULT
+        // ============================
 
         GameSettings.FriendlyFireEnabled =
             false;
 
         UpdateFriendlyFireVisual();
 
+        // ============================
+        // GAME MODE DEFAULT
+        // ============================
+
+        GameSettings.SelectedGameMode =
+            GameSettings.GameMode.TeamVsTeam;
+
+        UpdateGameModeVisual();
+
         Debug.Log(
-            "MAIN MENU READY"
+            "MAIN MENU READY | " +
+            $"GAME MODE: {GetCurrentGameModeName()}"
         );
     }
 
+    // ============================
+    // SAVE PLAYER NAME
+    // ============================
 
     private void SavePlayerName()
     {
@@ -124,6 +172,9 @@ public class MainMenuUI : MonoBehaviour
         );
     }
 
+    // ============================
+    // HOST GAME
+    // ============================
 
     public void HostGame()
     {
@@ -137,12 +188,16 @@ public class MainMenuUI : MonoBehaviour
         Debug.Log(
             $"HOST GAME PRESSED | " +
             $"Player: {PlayerProfile.PlayerName} | " +
-            $"Mode: HOST"
+            $"Network Mode: HOST | " +
+            $"Game Mode: {GetCurrentGameModeName()}"
         );
 
         LoadWaitingRoom();
     }
 
+    // ============================
+    // JOIN GAME
+    // ============================
 
     public void JoinGame()
     {
@@ -156,12 +211,15 @@ public class MainMenuUI : MonoBehaviour
         Debug.Log(
             $"JOIN GAME PRESSED | " +
             $"Player: {PlayerProfile.PlayerName} | " +
-            $"Mode: CLIENT"
+            $"Network Mode: CLIENT"
         );
 
         LoadWaitingRoom();
     }
 
+    // ============================
+    // LOAD WAITING ROOM
+    // ============================
 
     private void LoadWaitingRoom()
     {
@@ -173,7 +231,7 @@ public class MainMenuUI : MonoBehaviour
         {
             Debug.LogError(
                 "MAIN MENU: " +
-                "Waiting Scene Name está vacío."
+                "Waiting Scene Name is empty."
             );
 
             return;
@@ -184,7 +242,8 @@ public class MainMenuUI : MonoBehaviour
 
         Debug.Log(
             $"LOADING SCENE | " +
-            $"{waitingSceneName}"
+            $"{waitingSceneName} | " +
+            $"GAME MODE: {GetCurrentGameModeName()}"
         );
 
         SceneManager.LoadScene(
@@ -192,6 +251,76 @@ public class MainMenuUI : MonoBehaviour
         );
     }
 
+    // ============================
+    // GAME MODE TOGGLE
+    // ============================
+
+    public void ToggleGameMode()
+    {
+        if (isLoading)
+            return;
+
+        if (GameSettings.SelectedGameMode ==
+            GameSettings.GameMode.TeamVsTeam)
+        {
+            GameSettings.SelectedGameMode =
+                GameSettings.GameMode.Deathmatch;
+        }
+        else
+        {
+            GameSettings.SelectedGameMode =
+                GameSettings.GameMode.TeamVsTeam;
+        }
+
+        UpdateGameModeVisual();
+
+        Debug.Log(
+            $"GAME MODE SELECTED | " +
+            $"{GetCurrentGameModeName()}"
+        );
+    }
+
+    // ============================
+    // GAME MODE VISUAL
+    // ============================
+
+    private void UpdateGameModeVisual()
+    {
+        if (gameModeText == null)
+            return;
+
+        gameModeText.text =
+            GetCurrentGameModeName();
+    }
+
+    // ============================
+    // GAME MODE NAME
+    // ============================
+
+    private string GetCurrentGameModeName()
+    {
+        switch (
+            GameSettings.SelectedGameMode)
+        {
+            case GameSettings
+                .GameMode
+                .Deathmatch:
+
+                return "DEATHMATCH";
+
+            case GameSettings
+                .GameMode
+                .TeamVsTeam:
+
+            default:
+
+                return "TEAM VS TEAM";
+        }
+    }
+
+    // ============================
+    // FRIENDLY FIRE
+    // ============================
 
     public void ToggleFriendlyFire()
     {
@@ -213,6 +342,9 @@ public class MainMenuUI : MonoBehaviour
         );
     }
 
+    // ============================
+    // FRIENDLY FIRE VISUAL
+    // ============================
 
     private void UpdateFriendlyFireVisual()
     {
@@ -240,6 +372,9 @@ public class MainMenuUI : MonoBehaviour
                 : friendlyFireOffColor;
     }
 
+    // ============================
+    // QUIT GAME
+    // ============================
 
     public void QuitGame()
     {

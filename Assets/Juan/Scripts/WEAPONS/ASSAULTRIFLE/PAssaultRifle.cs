@@ -1,62 +1,110 @@
 using System.Collections;
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PAssaultRifle : NetworkBehaviour
 {
+    // ============================
+    // REFERENCES
+    // ============================
 
-    [Header("Referencias")]
+    [Header("References")]
     [SerializeField]
     private Camera playerCamera;
 
     [SerializeField]
     private Transform firePoint;
 
+    // ============================
+    // GAME SCENES
+    // ============================
+
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // ASSAULT RIFLE
+    // ============================
 
     [Header("Assault Rifle")]
     [SerializeField]
-    private float range = 100f;
+    private float range =
+        100f;
 
     [SerializeField]
-    private int damage = 11;
+    private int damage =
+        11;
 
+    // ============================
+    // FIRE RATE
+    // ============================
 
-    [Header("Cadencia")]
+    [Header("Fire Rate")]
     [SerializeField]
-    private float shotsPerSecond = 8f;
+    private float shotsPerSecond =
+        8f;
 
+    // ============================
+    // RELOAD
+    // ============================
 
-    [Header("Recarga")]
+    [Header("Reload")]
     [SerializeField]
-    private float reloadTime = 2.2f;
+    private float reloadTime =
+        2.2f;
 
+    // ============================
+    // SPREAD
+    // ============================
 
-    [Header("Dispersión")]
+    [Header("Spread")]
     [SerializeField]
-    private float spread = 0.02f;
+    private float spread =
+        0.02f;
 
+    // ============================
+    // TRACER
+    // ============================
 
     [Header("Tracer")]
     [SerializeField]
-    private Color tracerColor = Color.cyan;
+    private Color tracerColor =
+        Color.cyan;
 
     [SerializeField]
-    private float tracerDuration = 0.15f;
+    private float tracerDuration =
+        0.15f;
 
     [SerializeField]
-    private float tracerWidth = 0.025f;
+    private float tracerWidth =
+        0.025f;
 
-    [Header("Origen visual del tracer")]
+    // ============================
+    // TRACER VISUAL ORIGIN
+    // ============================
+
+    [Header("Tracer Visual Origin")]
     [SerializeField]
-    private float tracerForwardOffset = 0.5f;
+    private float tracerForwardOffset =
+        0.5f;
 
     [SerializeField]
-    private float tracerDownOffset = 0.15f;
+    private float tracerDownOffset =
+        0.15f;
 
+    // ============================
+    // EFFECT
+    // ============================
 
     [SerializeField]
     private ParticleSystem muzzleFlash;
 
+    // ============================
+    // NETWORK STATE
+    // ============================
 
     [Networked]
     private NetworkBool IsReloadingNetworked
@@ -79,6 +127,9 @@ public class PAssaultRifle : NetworkBehaviour
         set;
     }
 
+    // ============================
+    // REFERENCES
+    // ============================
 
     private PWeaponInventory weaponInventory;
 
@@ -86,10 +137,19 @@ public class PAssaultRifle : NetworkBehaviour
 
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
+
+    // ============================
+    // PUBLIC
+    // ============================
 
     public bool IsReloading =>
         IsReloadingNetworked;
 
+    // ============================
+    // AWAKE
+    // ============================
 
     private void Awake()
     {
@@ -100,6 +160,9 @@ public class PAssaultRifle : NetworkBehaviour
             GetComponent<PHealth>();
     }
 
+    // ============================
+    // SPAWNED
+    // ============================
 
     public override void Spawned()
     {
@@ -120,6 +183,11 @@ public class PAssaultRifle : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         if (Object.HasStateAuthority)
         {
             IsReloadingNetworked =
@@ -136,10 +204,14 @@ public class PAssaultRifle : NetworkBehaviour
             $"ASSAULT RIFLE READY | " +
             $"PLAYER: {Object.InputAuthority.PlayerId} | " +
             $"STATE: {Object.HasStateAuthority} | " +
-            $"INPUT: {Object.HasInputAuthority}"
+            $"INPUT: {Object.HasInputAuthority} | " +
+            $"SCENE: {SceneManager.GetActiveScene().name}"
         );
     }
 
+    // ============================
+    // UPDATE
+    // ============================
 
     private void Update()
     {
@@ -149,10 +221,8 @@ public class PAssaultRifle : NetworkBehaviour
         if (!Object.IsValid)
             return;
 
-
         if (!Object.HasInputAuthority)
             return;
-
 
         if (health == null)
         {
@@ -166,21 +236,10 @@ public class PAssaultRifle : NetworkBehaviour
             return;
         }
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -197,7 +256,6 @@ public class PAssaultRifle : NetworkBehaviour
             return;
         }
 
-
         if (Input.GetKeyDown(
             KeyCode.R))
         {
@@ -207,7 +265,6 @@ public class PAssaultRifle : NetworkBehaviour
         if (IsReloadingNetworked)
             return;
 
-
         if (Input.GetMouseButton(
             0))
         {
@@ -215,12 +272,14 @@ public class PAssaultRifle : NetworkBehaviour
         }
     }
 
+    // ============================
+    // FIXED UPDATE NETWORK
+    // ============================
 
     public override void FixedUpdateNetwork()
     {
         if (!Object.HasStateAuthority)
             return;
-
 
         if (IsReloadingNetworked &&
             ReloadTimer.IsRunning &&
@@ -231,7 +290,77 @@ public class PAssaultRifle : NetworkBehaviour
         }
     }
 
-    
+    // ============================
+    // CAN USE WEAPON
+    // ============================
+
+    private bool CanUseWeapon()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        if (!gameManager.CanPlay)
+        {
+            return false;
+        }
+
+        if (gameManager.IsReady &&
+            gameManager.GameOver)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ============================
+    // REQUEST SHOOT
+    // ============================
+
     private void RequestShoot()
     {
         if (!Object.HasInputAuthority)
@@ -241,7 +370,7 @@ public class PAssaultRifle : NetworkBehaviour
         {
             Debug.LogError(
                 "PAssaultRifle: " +
-                "Player Camera no está asignada."
+                "Player Camera is not assigned."
             );
 
             return;
@@ -251,18 +380,16 @@ public class PAssaultRifle : NetworkBehaviour
         {
             Debug.LogError(
                 "PAssaultRifle: " +
-                "Fire Point no está asignado."
+                "Fire Point is not assigned."
             );
 
             return;
         }
 
-
         Vector3 shotDirection =
             playerCamera
                 .transform
                 .forward;
-
 
         float randomHorizontal =
             Random.Range(
@@ -293,7 +420,6 @@ public class PAssaultRifle : NetworkBehaviour
         Vector3 shotOrigin =
             firePoint.position;
 
-
         if (Object.HasStateAuthority)
         {
             ProcessShootAuthoritative(
@@ -304,13 +430,15 @@ public class PAssaultRifle : NetworkBehaviour
             return;
         }
 
-
         RPC_RequestShoot(
             shotOrigin,
             shotDirection
         );
     }
 
+    // ============================
+    // SHOOT RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -329,6 +457,9 @@ public class PAssaultRifle : NetworkBehaviour
         );
     }
 
+    // ============================
+    // AUTHORITATIVE SHOOT
+    // ============================
 
     private void ProcessShootAuthoritative(
         Vector3 shotOrigin,
@@ -337,21 +468,10 @@ public class PAssaultRifle : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (health == null)
         {
@@ -364,7 +484,6 @@ public class PAssaultRifle : NetworkBehaviour
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -381,10 +500,8 @@ public class PAssaultRifle : NetworkBehaviour
             return;
         }
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (ShotCooldown.IsRunning &&
             !ShotCooldown.Expired(
@@ -392,7 +509,6 @@ public class PAssaultRifle : NetworkBehaviour
         {
             return;
         }
-
 
         if (weaponInventory
             .AssaultRifleLoaded <= 0)
@@ -402,10 +518,8 @@ public class PAssaultRifle : NetworkBehaviour
             return;
         }
 
-
         weaponInventory
             .AssaultRifleLoaded--;
-
 
         float shotInterval =
             shotsPerSecond > 0f
@@ -417,7 +531,6 @@ public class PAssaultRifle : NetworkBehaviour
                 Runner,
                 shotInterval
             );
-
 
         Ray ray =
             new Ray(
@@ -465,7 +578,6 @@ public class PAssaultRifle : NetworkBehaviour
                 range;
         }
 
-
         RPC_PlayShotEffects(
             shotOrigin,
             tracerEndPoint
@@ -475,12 +587,11 @@ public class PAssaultRifle : NetworkBehaviour
             $"ASSAULT RIFLE FIRE | " +
             $"Player: " +
             $"{Object.InputAuthority.PlayerId} | " +
-            $"Cargadas: " +
+            $"Loaded: " +
             $"{weaponInventory.AssaultRifleLoaded} | " +
-            $"Reserva: " +
+            $"Reserve: " +
             $"{weaponInventory.AssaultRifleReserve}"
         );
-
 
         if (weaponInventory
             .AssaultRifleLoaded <= 0)
@@ -489,6 +600,9 @@ public class PAssaultRifle : NetworkBehaviour
         }
     }
 
+    // ============================
+    // SHOT EFFECTS RPC
+    // ============================
 
     [Rpc(
         RpcSources.StateAuthority,
@@ -511,10 +625,16 @@ public class PAssaultRifle : NetworkBehaviour
         );
     }
 
+    // ============================
+    // REQUEST RELOAD
+    // ============================
 
     private void RequestReload()
     {
         if (!Object.HasInputAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (Object.HasStateAuthority)
@@ -527,6 +647,9 @@ public class PAssaultRifle : NetworkBehaviour
         RPC_RequestReload();
     }
 
+    // ============================
+    // RELOAD RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -537,13 +660,22 @@ public class PAssaultRifle : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         StartReloadAuthoritative();
     }
 
+    // ============================
+    // START RELOAD
+    // ============================
 
     private void StartReloadAuthoritative()
     {
         if (!Object.HasStateAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (weaponInventory == null)
@@ -570,7 +702,7 @@ public class PAssaultRifle : NetworkBehaviour
             .AssaultRifleReserve <= 0)
         {
             Debug.Log(
-                "ASSAULT RIFLE SIN MUNICIÓN DE RESERVA"
+                "ASSAULT RIFLE NO RESERVE AMMO"
             );
 
             return;
@@ -589,13 +721,16 @@ public class PAssaultRifle : NetworkBehaviour
             $"ASSAULT RIFLE RELOADING... | " +
             $"Player: " +
             $"{Object.InputAuthority.PlayerId} | " +
-            $"Cargadas: " +
+            $"Loaded: " +
             $"{weaponInventory.AssaultRifleLoaded} | " +
-            $"Reserva: " +
+            $"Reserve: " +
             $"{weaponInventory.AssaultRifleReserve}"
         );
     }
 
+    // ============================
+    // COMPLETE RELOAD
+    // ============================
 
     private void CompleteReloadAuthoritative()
     {
@@ -653,13 +788,16 @@ public class PAssaultRifle : NetworkBehaviour
             $"ASSAULT RIFLE RELOAD COMPLETE | " +
             $"Player: " +
             $"{Object.InputAuthority.PlayerId} | " +
-            $"Cargadas: " +
+            $"Loaded: " +
             $"{weaponInventory.AssaultRifleLoaded} | " +
-            $"Reserva: " +
+            $"Reserve: " +
             $"{weaponInventory.AssaultRifleReserve}"
         );
     }
 
+    // ============================
+    // TRACER
+    // ============================
 
     private IEnumerator ShowTracer(
         Vector3 start,

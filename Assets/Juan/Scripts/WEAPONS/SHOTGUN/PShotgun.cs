@@ -1,19 +1,23 @@
 using System.Collections;
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PShotgun : NetworkBehaviour
 {
-
-    [Header("Referencias")]
+    [Header("References")]
     [SerializeField]
     private Camera playerCamera;
 
     [SerializeField]
     private Transform firePoint;
 
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
 
-    [Header("Escopeta")]
+    [Header("Shotgun")]
     [SerializeField]
     private float range = 30f;
 
@@ -23,19 +27,16 @@ public class PShotgun : NetworkBehaviour
     [SerializeField]
     private int damagePerPellet = 8;
 
-
-    [Header("Munición")]
+    [Header("Ammo")]
     [SerializeField]
     private int maxLoadedShells = 2;
 
     [SerializeField]
     private float reloadTime = 2f;
 
-
-    [Header("Dispersión")]
+    [Header("Spread")]
     [SerializeField]
     private float spread = 0.08f;
-
 
     [Header("Falloff")]
     [SerializeField]
@@ -46,7 +47,6 @@ public class PShotgun : NetworkBehaviour
 
     [SerializeField]
     private float minimumDamageMultiplier = 0.3f;
-
 
     [Header("Tracer")]
     [SerializeField]
@@ -61,18 +61,15 @@ public class PShotgun : NetworkBehaviour
     [SerializeField]
     private float tracerWidth = 0.035f;
 
-
-    [Header("Origen visual del tracer")]
+    [Header("Tracer Visual Origin")]
     [SerializeField]
     private float tracerForwardOffset = 0.5f;
 
     [SerializeField]
     private float tracerDownOffset = 0.15f;
 
-
     [SerializeField]
     private ParticleSystem muzzleFlash;
-
 
     [Networked]
     private NetworkBool IsReloadingNetworked
@@ -88,17 +85,17 @@ public class PShotgun : NetworkBehaviour
         set;
     }
 
-
     private PWeaponInventory weaponInventory;
 
     private PHealth health;
 
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
 
     public bool IsReloading =>
         IsReloadingNetworked;
-
 
     private void Awake()
     {
@@ -108,7 +105,6 @@ public class PShotgun : NetworkBehaviour
         health =
             GetComponent<PHealth>();
     }
-
 
     public override void Spawned()
     {
@@ -138,6 +134,11 @@ public class PShotgun : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         if (Object.HasStateAuthority)
         {
             IsReloadingNetworked =
@@ -151,10 +152,10 @@ public class PShotgun : NetworkBehaviour
             $"SHOTGUN READY | " +
             $"PLAYER: {Object.InputAuthority.PlayerId} | " +
             $"STATE: {Object.HasStateAuthority} | " +
-            $"INPUT: {Object.HasInputAuthority}"
+            $"INPUT: {Object.HasInputAuthority} | " +
+            $"SCENE: {SceneManager.GetActiveScene().name}"
         );
     }
-
 
     private void Update()
     {
@@ -164,10 +165,8 @@ public class PShotgun : NetworkBehaviour
         if (!Object.IsValid)
             return;
 
-
         if (!Object.HasInputAuthority)
             return;
-
 
         if (health == null)
         {
@@ -181,21 +180,10 @@ public class PShotgun : NetworkBehaviour
             return;
         }
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -212,17 +200,14 @@ public class PShotgun : NetworkBehaviour
             return;
         }
 
-
         if (Input.GetKeyDown(
             KeyCode.R))
         {
             RequestReload();
         }
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (Input.GetMouseButtonDown(
             0))
@@ -230,7 +215,6 @@ public class PShotgun : NetworkBehaviour
             RequestShoot();
         }
     }
-
 
     public override void FixedUpdateNetwork()
     {
@@ -246,17 +230,86 @@ public class PShotgun : NetworkBehaviour
         }
     }
 
+    // ============================
+    // CAN USE WEAPON
+    // ============================
+
+    private bool CanUseWeapon()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        if (!gameManager.CanPlay)
+        {
+            return false;
+        }
+
+        if (gameManager.IsReady &&
+            gameManager.GameOver)
+        {
+            return false;
+        }
+
+        return true;
+    }
 
     private void RequestShoot()
     {
         if (!Object.HasInputAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         if (playerCamera == null)
         {
             Debug.LogError(
                 "PShotgun: " +
-                "Player Camera no está asignada."
+                "Player Camera is not assigned."
             );
 
             return;
@@ -266,7 +319,7 @@ public class PShotgun : NetworkBehaviour
         {
             Debug.LogError(
                 "PShotgun: " +
-                "Fire Point no está asignado."
+                "Fire Point is not assigned."
             );
 
             return;
@@ -290,7 +343,6 @@ public class PShotgun : NetworkBehaviour
         Vector3 shotOrigin =
             firePoint.position;
 
-
         if (Object.HasStateAuthority)
         {
             ProcessShootAuthoritative(
@@ -303,7 +355,6 @@ public class PShotgun : NetworkBehaviour
             return;
         }
 
-
         RPC_RequestShoot(
             shotOrigin,
             cameraForward,
@@ -311,7 +362,6 @@ public class PShotgun : NetworkBehaviour
             cameraUp
         );
     }
-
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -334,7 +384,6 @@ public class PShotgun : NetworkBehaviour
         );
     }
 
-
     private void ProcessShootAuthoritative(
         Vector3 shotOrigin,
         Vector3 cameraForward,
@@ -344,21 +393,10 @@ public class PShotgun : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (health == null)
         {
@@ -371,7 +409,6 @@ public class PShotgun : NetworkBehaviour
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -388,23 +425,20 @@ public class PShotgun : NetworkBehaviour
             return;
         }
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (weaponInventory
             .ShotgunLoaded <= 0)
         {
             Debug.Log(
-                "SHOTGUN VACÍA"
+                "SHOTGUN EMPTY"
             );
 
             StartReloadAuthoritative();
 
             return;
         }
-
 
         weaponInventory
             .ShotgunLoaded--;
@@ -419,7 +453,6 @@ public class PShotgun : NetworkBehaviour
             $"{weaponInventory.ShotgunReserve}"
         );
 
-
         for (
             int i = 0;
             i < pelletsPerShot;
@@ -433,9 +466,7 @@ public class PShotgun : NetworkBehaviour
             );
         }
 
-
         RPC_PlayMuzzleFlash();
-
 
         if (weaponInventory
             .ShotgunLoaded <= 0)
@@ -443,7 +474,6 @@ public class PShotgun : NetworkBehaviour
             StartReloadAuthoritative();
         }
     }
-
 
     private void FireSinglePelletAuthoritative(
         Vector3 shotOrigin,
@@ -453,7 +483,6 @@ public class PShotgun : NetworkBehaviour
     {
         if (!Object.HasStateAuthority)
             return;
-
 
         float randomHorizontal =
             Random.Range(
@@ -479,7 +508,6 @@ public class PShotgun : NetworkBehaviour
             randomVertical;
 
         shotDirection.Normalize();
-
 
         Ray ray =
             new Ray(
@@ -543,13 +571,11 @@ public class PShotgun : NetworkBehaviour
                 range;
         }
 
-
         RPC_PlayTracer(
             shotOrigin,
             tracerEndPoint
         );
     }
-
 
     [Rpc(
         RpcSources.StateAuthority,
@@ -562,7 +588,6 @@ public class PShotgun : NetworkBehaviour
             muzzleFlash.Play();
         }
     }
-
 
     [Rpc(
         RpcSources.StateAuthority,
@@ -580,10 +605,12 @@ public class PShotgun : NetworkBehaviour
         );
     }
 
-
     private void RequestReload()
     {
         if (!Object.HasInputAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (Object.HasStateAuthority)
@@ -596,7 +623,6 @@ public class PShotgun : NetworkBehaviour
         RPC_RequestReload();
     }
 
-
     [Rpc(
         RpcSources.InputAuthority,
         RpcTargets.StateAuthority
@@ -606,13 +632,18 @@ public class PShotgun : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         StartReloadAuthoritative();
     }
-
 
     private void StartReloadAuthoritative()
     {
         if (!Object.HasStateAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (weaponInventory == null)
@@ -638,7 +669,7 @@ public class PShotgun : NetworkBehaviour
             .ShotgunReserve <= 0)
         {
             Debug.Log(
-                "SHOTGUN SIN MUNICIÓN DE RESERVA"
+                "SHOTGUN NO RESERVE AMMO"
             );
 
             return;
@@ -663,7 +694,6 @@ public class PShotgun : NetworkBehaviour
             $"{weaponInventory.ShotgunReserve}"
         );
     }
-
 
     private void CompleteReloadAuthoritative()
     {
@@ -727,7 +757,6 @@ public class PShotgun : NetworkBehaviour
         );
     }
 
-
     private float CalculateDamageFalloff(
         float distance)
     {
@@ -758,7 +787,6 @@ public class PShotgun : NetworkBehaviour
                 t
             );
     }
-
 
     private IEnumerator ShowTracer(
         Vector3 start,

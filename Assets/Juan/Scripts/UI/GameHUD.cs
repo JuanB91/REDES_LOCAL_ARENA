@@ -2,16 +2,23 @@ using System.Reflection;
 using Fusion;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class GameHUD : MonoBehaviour
 {
-   
+    // ============================
+    // SCORE
+    // ============================
+
     [Header("Score")]
     [SerializeField]
     private TMP_Text scoreText;
 
-    
+    // ============================
+    // HEALTH
+    // ============================
+
     [Header("Health")]
     [SerializeField]
     private Image healthBar;
@@ -19,6 +26,9 @@ public class GameHUD : MonoBehaviour
     [SerializeField]
     private TMP_Text healthText;
 
+    // ============================
+    // WEAPON HUD
+    // ============================
 
     [Header("Weapon")]
     [SerializeField]
@@ -30,6 +40,9 @@ public class GameHUD : MonoBehaviour
     [SerializeField]
     private TMP_Text weaponStatusText;
 
+    // ============================
+    // MATCH UI
+    // ============================
 
     [Header("Match")]
     [SerializeField]
@@ -44,11 +57,39 @@ public class GameHUD : MonoBehaviour
     [SerializeField]
     private Button restartButton;
 
+    // ============================
+    // GAME SCENES
+    // ============================
 
-    [Header("References")]
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // DEATHMATCH START MESSAGE
+    // ============================
+
+    [Header("Deathmatch Start Message")]
+    [SerializeField]
+    private float deathmatchStartedMessageDuration =
+        3f;
+
+    // ============================
+    // MANAGERS
+    // ============================
+
+    [Header("Managers")]
     [SerializeField]
     private NetworkGameManager gameManager;
 
+    [SerializeField]
+    private DeathmatchGameManager
+        deathmatchGameManager;
+
+    // ============================
+    // LOCAL PLAYER
+    // ============================
 
     private NetworkObject localPlayerObject;
 
@@ -58,6 +99,9 @@ public class GameHUD : MonoBehaviour
 
     private PWeaponInventory weaponInventory;
 
+    // ============================
+    // WEAPON COMPONENTS
+    // ============================
 
     private MonoBehaviour pistolScript;
 
@@ -71,11 +115,23 @@ public class GameHUD : MonoBehaviour
 
     private MonoBehaviour grenadeScript;
 
+    // ============================
+    // RUNTIME
+    // ============================
 
     private bool resultShown;
 
     private bool localPlayerFound;
 
+    private bool previousDeathmatchStarted;
+
+    private bool deathmatchStartMessageActive;
+
+    private float deathmatchStartMessageEndTime;
+
+    // ============================
+    // START
+    // ============================
 
     private void Start()
     {
@@ -84,6 +140,15 @@ public class GameHUD : MonoBehaviour
 
         localPlayerFound =
             false;
+
+        previousDeathmatchStarted =
+            false;
+
+        deathmatchStartMessageActive =
+            false;
+
+        deathmatchStartMessageEndTime =
+            0f;
 
         HideEndGameUI();
 
@@ -107,12 +172,50 @@ public class GameHUD : MonoBehaviour
 
         Cursor.visible =
             false;
+
+        Debug.Log(
+            $"HUD READY | MODE: " +
+            $"{(IsDeathmatch() ? "DEATHMATCH" : "TEAM VS TEAM")}"
+        );
     }
 
+    // ============================
+    // UPDATE
+    // ============================
 
     private void Update()
     {
+        FindLocalPlayer();
 
+        if (IsDeathmatch())
+        {
+            UpdateDeathmatchHUD();
+
+            return;
+        }
+
+        UpdateTeamVsTeamHUD();
+    }
+
+    // ============================
+    // MODE
+    // ============================
+
+    private bool IsDeathmatch()
+    {
+        return
+            SceneManager
+                .GetActiveScene()
+                .name ==
+            deathmatchSceneName;
+    }
+
+    // ============================
+    // TEAM VS TEAM HUD
+    // ============================
+
+    private void UpdateTeamVsTeamHUD()
+    {
         FindGameManager();
 
         if (gameManager == null)
@@ -121,16 +224,9 @@ public class GameHUD : MonoBehaviour
         if (!gameManager.IsReady)
             return;
 
+        UpdateTeamScore();
 
-        ValidateLocalPlayer();
-
-        FindLocalPlayer();
-
-
-        UpdateScore();
-
-        UpdateWaitingUI();
-
+        UpdateTeamWaitingUI();
 
         if (!localPlayerFound)
             return;
@@ -139,23 +235,45 @@ public class GameHUD : MonoBehaviour
 
         UpdateWeaponHUD();
 
-        UpdateMatchResult();
+        UpdateTeamMatchResult();
     }
 
+    // ============================
+    // DEATHMATCH HUD
+    // ============================
+
+    private void UpdateDeathmatchHUD()
+    {
+        FindDeathmatchGameManager();
+
+        if (deathmatchGameManager == null)
+            return;
+
+        if (!deathmatchGameManager.IsReady)
+            return;
+
+        UpdateDeathmatchWaitingUI();
+
+        UpdateDeathmatchScore();
+
+        if (!localPlayerFound)
+            return;
+
+        UpdateHealth();
+
+        UpdateWeaponHUD();
+
+        UpdateDeathmatchMatchResult();
+    }
+
+    // ============================
+    // FIND TEAM MANAGER
+    // ============================
 
     private void FindGameManager()
     {
         if (gameManager != null)
-        {
-            if (gameManager.Object != null &&
-                gameManager.Object.IsValid)
-            {
-                return;
-            }
-
-            gameManager =
-                null;
-        }
+            return;
 
         gameManager =
             FindFirstObjectByType<
@@ -163,36 +281,34 @@ public class GameHUD : MonoBehaviour
             >();
     }
 
+    // ============================
+    // FIND DEATHMATCH MANAGER
+    // ============================
 
-    private void ValidateLocalPlayer()
+    private void FindDeathmatchGameManager()
     {
-        if (!localPlayerFound)
+        if (deathmatchGameManager != null)
             return;
 
-        if (localPlayerObject == null)
-        {
-            ClearLocalPlayer();
-
-            return;
-        }
-
-        if (!localPlayerObject.IsValid)
-        {
-            ClearLocalPlayer();
-
-            return;
-        }
-
-        if (!localPlayerObject
-            .HasInputAuthority)
-        {
-            ClearLocalPlayer();
-        }
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
     }
 
+    // ============================
+    // FIND LOCAL PLAYER
+    // ============================
 
-    private void ClearLocalPlayer()
+    private void FindLocalPlayer()
     {
+        if (localPlayerFound &&
+            localPlayerObject != null)
+        {
+            if (localPlayerObject.IsValid)
+                return;
+        }
+
         localPlayerFound =
             false;
 
@@ -207,31 +323,6 @@ public class GameHUD : MonoBehaviour
 
         weaponInventory =
             null;
-
-        pistolScript =
-            null;
-
-        shotgunScript =
-            null;
-
-        assaultRifleScript =
-            null;
-
-        sniperScript =
-            null;
-
-        rocketLauncherScript =
-            null;
-
-        grenadeScript =
-            null;
-    }
-
-
-    private void FindLocalPlayer()
-    {
-        if (localPlayerFound)
-            return;
 
         PHealth[] players =
             FindObjectsByType<PHealth>(
@@ -255,7 +346,6 @@ public class GameHUD : MonoBehaviour
 
             if (!networkObject.IsValid)
                 continue;
-
 
             if (!networkObject
                 .HasInputAuthority)
@@ -292,6 +382,8 @@ public class GameHUD : MonoBehaviour
                 $"HUD LOCAL PLAYER FOUND | " +
                 $"Player: " +
                 $"{networkObject.InputAuthority.PlayerId} | " +
+                $"Mode: " +
+                $"{(IsDeathmatch() ? "DEATHMATCH" : "TEAM VS TEAM")} | " +
                 $"StateAuthority: " +
                 $"{networkObject.HasStateAuthority} | " +
                 $"InputAuthority: " +
@@ -302,6 +394,9 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    // ============================
+    // CACHE WEAPON SCRIPTS
+    // ============================
 
     private void CacheWeaponScripts(
         GameObject player)
@@ -373,8 +468,11 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    // ============================
+    // TEAM SCORE
+    // ============================
 
-    private void UpdateScore()
+    private void UpdateTeamScore()
     {
         if (scoreText == null)
             return;
@@ -387,8 +485,29 @@ public class GameHUD : MonoBehaviour
             $"BLUE: {gameManager.BlueScore}";
     }
 
+    // ============================
+    // DEATHMATCH SCORE
+    // ============================
 
-    private void UpdateWaitingUI()
+    private void UpdateDeathmatchScore()
+    {
+        if (scoreText == null)
+            return;
+
+        if (deathmatchGameManager == null)
+            return;
+
+        scoreText.text =
+            $"TOTAL KILLS: " +
+            $"{deathmatchGameManager.TotalKills} / " +
+            $"{deathmatchGameManager.KillsToWin}";
+    }
+
+    // ============================
+    // TEAM WAITING
+    // ============================
+
+    private void UpdateTeamWaitingUI()
     {
         if (waitingText == null)
             return;
@@ -413,6 +532,143 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    // ============================
+    // DEATHMATCH WAITING
+    // ============================
+
+    private void UpdateDeathmatchWaitingUI()
+    {
+        if (waitingText == null)
+            return;
+
+        if (deathmatchGameManager == null)
+            return;
+
+        bool matchStartedNow =
+            deathmatchGameManager.MatchStarted;
+
+        // ============================
+        // DETECT MATCH START
+        // ============================
+
+        if (matchStartedNow &&
+            !previousDeathmatchStarted)
+        {
+            deathmatchStartMessageActive =
+                true;
+
+            deathmatchStartMessageEndTime =
+                Time.time +
+                deathmatchStartedMessageDuration;
+
+            Debug.Log(
+                "HUD: DEATHMATCH START MESSAGE"
+            );
+        }
+
+        previousDeathmatchStarted =
+            matchStartedNow;
+
+        // ============================
+        // GAME OVER
+        // ============================
+
+        if (deathmatchGameManager.GameOver)
+        {
+            deathmatchStartMessageActive =
+                false;
+
+            waitingText
+                .gameObject
+                .SetActive(
+                    false
+                );
+
+            return;
+        }
+
+        // ============================
+        // WARMUP
+        // ============================
+
+        if (deathmatchGameManager.WarmupActive)
+        {
+            deathmatchStartMessageActive =
+                false;
+
+            int seconds =
+                deathmatchGameManager
+                    .WarmupSecondsRemaining;
+
+            waitingText.text =
+                $"DEATHMATCH STARTS IN: {seconds}";
+
+            waitingText
+                .gameObject
+                .SetActive(
+                    true
+                );
+
+            return;
+        }
+
+        // ============================
+        // STARTED MESSAGE
+        // ============================
+
+        if (deathmatchStartMessageActive)
+        {
+            if (Time.time <
+                deathmatchStartMessageEndTime)
+            {
+                waitingText.text =
+                    "DEATHMATCH STARTED";
+
+                waitingText
+                    .gameObject
+                    .SetActive(
+                        true
+                    );
+
+                return;
+            }
+
+            deathmatchStartMessageActive =
+                false;
+        }
+
+        // ============================
+        // WAITING FOR PLAYERS
+        // ============================
+
+        if (!deathmatchGameManager.MatchStarted)
+        {
+            waitingText.text =
+                "WAITING FOR PLAYERS";
+
+            waitingText
+                .gameObject
+                .SetActive(
+                    true
+                );
+
+            return;
+        }
+
+        // ============================
+        // MATCH ACTIVE
+        // ============================
+
+        waitingText
+            .gameObject
+            .SetActive(
+                false
+            );
+    }
+
+    // ============================
+    // HEALTH
+    // ============================
 
     private void UpdateHealth()
     {
@@ -424,7 +680,6 @@ public class GameHUD : MonoBehaviour
 
         if (!localHealth.Object.IsValid)
             return;
-
 
         if (healthBar != null)
         {
@@ -441,7 +696,6 @@ public class GameHUD : MonoBehaviour
                 );
         }
 
-
         if (healthText != null)
         {
             healthText.text =
@@ -450,6 +704,9 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    // ============================
+    // WEAPON HUD
+    // ============================
 
     private void UpdateWeaponHUD()
     {
@@ -462,7 +719,6 @@ public class GameHUD : MonoBehaviour
         if (!weaponInventory.Object.IsValid)
             return;
 
-
         if (weaponText != null)
         {
             weaponText.text =
@@ -470,13 +726,14 @@ public class GameHUD : MonoBehaviour
                     .CurrentWeaponName;
         }
 
-
         UpdateAmmoText();
-
 
         UpdateReloadText();
     }
 
+    // ============================
+    // AMMO
+    // ============================
 
     private void UpdateAmmoText()
     {
@@ -489,7 +746,6 @@ public class GameHUD : MonoBehaviour
         switch (
             weaponInventory.CurrentWeapon)
         {
-
             case PWeaponInventory
                 .WeaponType
                 .Pistol:
@@ -514,7 +770,6 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
-
             case PWeaponInventory
                 .WeaponType
                 .Shotgun:
@@ -524,7 +779,6 @@ public class GameHUD : MonoBehaviour
                     $"{weaponInventory.ShotgunReserve}";
 
                 break;
-
 
             case PWeaponInventory
                 .WeaponType
@@ -536,7 +790,6 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
-
             case PWeaponInventory
                 .WeaponType
                 .Sniper:
@@ -547,7 +800,6 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
-
             case PWeaponInventory
                 .WeaponType
                 .RocketLauncher:
@@ -557,7 +809,6 @@ public class GameHUD : MonoBehaviour
                     $"{weaponInventory.RocketLauncherReserve}";
 
                 break;
-
 
             case PWeaponInventory
                 .WeaponType
@@ -571,6 +822,9 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    // ============================
+    // RELOAD STATUS
+    // ============================
 
     private void UpdateReloadText()
     {
@@ -586,7 +840,6 @@ public class GameHUD : MonoBehaviour
         switch (
             weaponInventory.CurrentWeapon)
         {
-
             case PWeaponInventory
                 .WeaponType
                 .Pistol:
@@ -598,7 +851,6 @@ public class GameHUD : MonoBehaviour
                     );
 
                 break;
-
 
             case PWeaponInventory
                 .WeaponType
@@ -612,7 +864,6 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
-
             case PWeaponInventory
                 .WeaponType
                 .AssaultRifle:
@@ -624,7 +875,6 @@ public class GameHUD : MonoBehaviour
                     );
 
                 break;
-
 
             case PWeaponInventory
                 .WeaponType
@@ -638,7 +888,6 @@ public class GameHUD : MonoBehaviour
 
                 break;
 
-
             case PWeaponInventory
                 .WeaponType
                 .RocketLauncher:
@@ -650,7 +899,6 @@ public class GameHUD : MonoBehaviour
                     );
 
                 break;
-
 
             case PWeaponInventory
                 .WeaponType
@@ -671,32 +919,21 @@ public class GameHUD : MonoBehaviour
                 : "";
     }
 
+    // ============================
+    // TEAM MATCH RESULT
+    // ============================
 
-    private void UpdateMatchResult()
+    private void UpdateTeamMatchResult()
     {
         if (gameManager == null)
             return;
 
-
         if (!gameManager.GameOver)
         {
-            if (resultShown)
-            {
-                resultShown =
-                    false;
-
-                HideEndGameUI();
-
-                Cursor.lockState =
-                    CursorLockMode.Locked;
-
-                Cursor.visible =
-                    false;
-            }
+            ResetResultUIIfNeeded();
 
             return;
         }
-
 
         if (resultShown)
             return;
@@ -712,7 +949,6 @@ public class GameHUD : MonoBehaviour
 
         if (!localTeam.Object.IsValid)
             return;
-
 
         bool localTeamWon =
             localTeam.CurrentTeam ==
@@ -730,44 +966,97 @@ public class GameHUD : MonoBehaviour
         resultShown =
             true;
 
-        Cursor.lockState =
-            CursorLockMode.None;
-
-        Cursor.visible =
-            true;
+        UnlockCursor();
     }
 
+    // ============================
+    // DEATHMATCH MATCH RESULT
+    // ============================
 
-    private void UpdateRestartButtonVisibility()
+    private void UpdateDeathmatchMatchResult()
     {
-        if (restartButton == null)
+        if (deathmatchGameManager == null)
             return;
 
-        bool canRestart =
-            gameManager != null &&
-            gameManager.IsReady &&
-            gameManager.CanLocalRestart;
-
-        restartButton
-            .gameObject
-            .SetActive(
-                canRestart
-            );
-
-        if (canRestart)
+        if (!deathmatchGameManager.GameOver)
         {
+            ResetResultUIIfNeeded();
+
+            return;
+        }
+
+        if (resultShown)
+            return;
+
+        if (!deathmatchGameManager.HasWinner)
+            return;
+
+        if (localPlayerObject == null)
+            return;
+
+        if (!localPlayerObject.IsValid)
+            return;
+
+        PlayerRef localPlayer =
+            localPlayerObject.InputAuthority;
+
+        bool localPlayerWon =
+            deathmatchGameManager
+                .IsWinner(
+                    localPlayer
+                );
+
+        if (localPlayerWon)
+        {
+            ShowVictory();
+
             Debug.Log(
-                "HUD: RESTART BUTTON VISIBLE | HOST"
+                $"DEATHMATCH HUD RESULT | " +
+                $"PLAYER {localPlayer.PlayerId} | " +
+                $"VICTORY"
             );
         }
         else
         {
+            ShowDefeat();
+
             Debug.Log(
-                "HUD: RESTART BUTTON HIDDEN | CLIENT"
+                $"DEATHMATCH HUD RESULT | " +
+                $"PLAYER {localPlayer.PlayerId} | " +
+                $"DEFEAT"
             );
         }
+
+        resultShown =
+            true;
+
+        UnlockCursor();
     }
 
+    // ============================
+    // RESET RESULT UI
+    // ============================
+
+    private void ResetResultUIIfNeeded()
+    {
+        if (!resultShown)
+            return;
+
+        resultShown =
+            false;
+
+        HideEndGameUI();
+
+        Cursor.lockState =
+            CursorLockMode.Locked;
+
+        Cursor.visible =
+            false;
+    }
+
+    // ============================
+    // VICTORY
+    // ============================
 
     private void ShowVictory()
     {
@@ -792,10 +1081,12 @@ public class GameHUD : MonoBehaviour
                 );
         }
 
-        // Only Host sees Restart.
         UpdateRestartButtonVisibility();
     }
 
+    // ============================
+    // DEFEAT
+    // ============================
 
     private void ShowDefeat()
     {
@@ -820,10 +1111,48 @@ public class GameHUD : MonoBehaviour
                 );
         }
 
-        // Only Host sees Restart.
         UpdateRestartButtonVisibility();
     }
 
+    // ============================
+    // RESTART BUTTON VISIBILITY
+    // ============================
+
+    private void UpdateRestartButtonVisibility()
+    {
+        if (restartButton == null)
+            return;
+
+        bool canRestart =
+            false;
+
+        if (IsDeathmatch())
+        {
+            canRestart =
+                deathmatchGameManager != null &&
+                deathmatchGameManager.IsReady &&
+                deathmatchGameManager
+                    .CanLocalRestart;
+        }
+        else
+        {
+            canRestart =
+                gameManager != null &&
+                gameManager.IsReady &&
+                gameManager
+                    .CanLocalRestart;
+        }
+
+        restartButton
+            .gameObject
+            .SetActive(
+                canRestart
+            );
+    }
+
+    // ============================
+    // HIDE END GAME
+    // ============================
 
     public void HideEndGameUI()
     {
@@ -855,6 +1184,9 @@ public class GameHUD : MonoBehaviour
         }
     }
 
+    // ============================
+    // RESTART
+    // ============================
 
     public void RestartMatch()
     {
@@ -862,10 +1194,28 @@ public class GameHUD : MonoBehaviour
             "HUD: RESTART BUTTON PRESSED"
         );
 
+        if (IsDeathmatch())
+        {
+            RestartDeathmatch();
+
+            return;
+        }
+
+        RestartTeamVsTeam();
+    }
+
+    // ============================
+    // RESTART TEAM VS TEAM
+    // ============================
+
+    private void RestartTeamVsTeam()
+    {
+        FindGameManager();
+
         if (gameManager == null)
         {
             Debug.LogError(
-                "HUD: GAME MANAGER ES NULL"
+                "HUD: NETWORK GAME MANAGER IS NULL"
             );
 
             return;
@@ -874,30 +1224,86 @@ public class GameHUD : MonoBehaviour
         if (!gameManager.IsReady)
         {
             Debug.LogError(
-                "HUD: GAME MANAGER TODAVIA NO ESTA READY"
+                "HUD: NETWORK GAME MANAGER IS NOT READY"
             );
 
             return;
         }
 
-
         if (!gameManager.CanLocalRestart)
         {
             Debug.LogWarning(
                 "HUD: RESTART BLOCKED | " +
-                "THIS CLIENT IS NOT HOST"
+                "ONLY HOST CAN RESTART"
+            );
+
+            return;
+        }
+
+        gameManager.RequestRestart();
+    }
+
+    // ============================
+    // RESTART DEATHMATCH
+    // ============================
+
+    private void RestartDeathmatch()
+    {
+        FindDeathmatchGameManager();
+
+        if (deathmatchGameManager == null)
+        {
+            Debug.LogError(
+                "HUD: DEATHMATCH GAME MANAGER IS NULL"
+            );
+
+            return;
+        }
+
+        if (!deathmatchGameManager.IsReady)
+        {
+            Debug.LogError(
+                "HUD: DEATHMATCH GAME MANAGER IS NOT READY"
+            );
+
+            return;
+        }
+
+        if (!deathmatchGameManager
+            .CanLocalRestart)
+        {
+            Debug.LogWarning(
+                "HUD: DEATHMATCH RESTART BLOCKED | " +
+                "ONLY HOST CAN RESTART"
             );
 
             return;
         }
 
         Debug.Log(
-            "HUD: HOST REQUESTING RESTART"
+            "HUD: SENDING DEATHMATCH RESTART"
         );
 
-        gameManager.RequestRestart();
+        deathmatchGameManager
+            .RequestRestart();
     }
 
+    // ============================
+    // CURSOR
+    // ============================
+
+    private void UnlockCursor()
+    {
+        Cursor.lockState =
+            CursorLockMode.None;
+
+        Cursor.visible =
+            true;
+    }
+
+    // ============================
+    // REFLECTION INT
+    // ============================
 
     private int GetIntValue(
         MonoBehaviour component,
@@ -958,6 +1364,9 @@ public class GameHUD : MonoBehaviour
         return defaultValue;
     }
 
+    // ============================
+    // REFLECTION BOOL
+    // ============================
 
     private bool GetBoolValue(
         MonoBehaviour component,
@@ -975,18 +1384,19 @@ public class GameHUD : MonoBehaviour
                     BindingFlags.Instance
                 );
 
-        if (property != null &&
-            property.PropertyType ==
-            typeof(bool))
+        if (property != null)
         {
             object value =
                 property.GetValue(
                     component
                 );
 
-            if (value != null)
+            if (value is bool boolValue)
+                return boolValue;
+
+            if (value is NetworkBool networkBool)
             {
-                return (bool)value;
+                return networkBool;
             }
         }
 
@@ -999,18 +1409,19 @@ public class GameHUD : MonoBehaviour
                     BindingFlags.Instance
                 );
 
-        if (field != null &&
-            field.FieldType ==
-            typeof(bool))
+        if (field != null)
         {
             object value =
                 field.GetValue(
                     component
                 );
 
-            if (value != null)
+            if (value is bool boolValue)
+                return boolValue;
+
+            if (value is NetworkBool networkBool)
             {
-                return (bool)value;
+                return networkBool;
             }
         }
 

@@ -11,7 +11,10 @@ public class NetworkBootstrap :
     MonoBehaviour,
     INetworkRunnerCallbacks
 {
-    
+    // ============================
+    // NETWORK
+    // ============================
+
     [Header("Network")]
     [SerializeField]
     private NetworkObject playerPrefab;
@@ -24,16 +27,39 @@ public class NetworkBootstrap :
     private int maxPlayers =
         16;
 
-    
+    // ============================
+    // GAME SCENES
+    // ============================
+
+    [Header("Game Scenes")]
+
+    [SerializeField]
+    private string teamVsTeamSceneName =
+        "ARENA";
+
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // INPUT
+    // ============================
+
     [Header("Input")]
     [SerializeField]
     private float doubleTapTime =
         0.25f;
 
-    
+    // ============================
+    // NETWORK RUNNER
+    // ============================
+
     private NetworkRunner runner;
 
-    
+    // ============================
+    // GHOST STEP INPUT
+    // ============================
+
     private float lastWPress =
         -10f;
 
@@ -51,7 +77,10 @@ public class NetworkBootstrap :
     private bool pendingGhostLeft;
     private bool pendingGhostRight;
 
-    
+    // ============================
+    // START
+    // ============================
+
     private async void Start()
     {
         DontDestroyOnLoad(
@@ -61,12 +90,18 @@ public class NetworkBootstrap :
         await StartGame();
     }
 
-    
+    // ============================
+    // UPDATE
+    // ============================
+
     private void Update()
     {
         CaptureDoubleTapInput();
     }
 
+    // ============================
+    // CAPTURE DOUBLE TAP
+    // ============================
 
     private void CaptureDoubleTapInput()
     {
@@ -76,6 +111,9 @@ public class NetworkBootstrap :
         if (!runner.IsRunning)
             return;
 
+        // ============================
+        // W
+        // ============================
 
         if (Input.GetKeyDown(
             KeyCode.W))
@@ -92,6 +130,9 @@ public class NetworkBootstrap :
                 Time.time;
         }
 
+        // ============================
+        // S
+        // ============================
 
         if (Input.GetKeyDown(
             KeyCode.S))
@@ -108,6 +149,9 @@ public class NetworkBootstrap :
                 Time.time;
         }
 
+        // ============================
+        // A
+        // ============================
 
         if (Input.GetKeyDown(
             KeyCode.A))
@@ -124,6 +168,9 @@ public class NetworkBootstrap :
                 Time.time;
         }
 
+        // ============================
+        // D
+        // ============================
 
         if (Input.GetKeyDown(
             KeyCode.D))
@@ -141,6 +188,9 @@ public class NetworkBootstrap :
         }
     }
 
+    // ============================
+    // START GAME
+    // ============================
 
     private async Task StartGame()
     {
@@ -174,7 +224,6 @@ public class NetworkBootstrap :
             this
         );
 
-
         NetworkSceneManagerDefault
             sceneManager =
             GetComponent<
@@ -188,7 +237,6 @@ public class NetworkBootstrap :
                     NetworkSceneManagerDefault
                 >();
         }
-
 
         GameMode selectedMode =
             NetworkLaunchSettings
@@ -216,7 +264,6 @@ public class NetworkBootstrap :
                     sceneManager
             };
 
-
         if (selectedMode ==
             GameMode.Host)
         {
@@ -232,7 +279,6 @@ public class NetworkBootstrap :
             args.Scene =
                 currentScene;
         }
-
 
         StartGameResult result =
             await runner.StartGame(
@@ -266,6 +312,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // PLAYER JOINED
+    // ============================
 
     public void OnPlayerJoined(
         NetworkRunner runner,
@@ -279,9 +328,13 @@ public class NetworkBootstrap :
             $"Server: {runner.IsServer}"
         );
 
-        if (SceneManager
-            .GetActiveScene()
-            .name != "ARENA")
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        if (!IsGameplayScene(
+            sceneName))
         {
             return;
         }
@@ -294,6 +347,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // SCENE LOAD DONE
+    // ============================
 
     public void OnSceneLoadDone(
         NetworkRunner runner)
@@ -309,11 +365,20 @@ public class NetworkBootstrap :
             $"SERVER: {runner.IsServer}"
         );
 
-        if (sceneName != "ARENA")
+        if (!IsGameplayScene(
+            sceneName))
+        {
             return;
+        }
 
         if (!runner.IsServer)
             return;
+
+        Debug.Log(
+            $"GAMEPLAY SCENE READY | " +
+            $"SCENE: {sceneName} | " +
+            $"SPAWNING ACTIVE PLAYERS"
+        );
 
         foreach (
             PlayerRef player
@@ -325,6 +390,39 @@ public class NetworkBootstrap :
         }
     }
 
+    // ============================
+    // GAMEPLAY SCENE CHECK
+    // ============================
+
+    private bool IsGameplayScene(
+        string sceneName)
+    {
+        return
+            sceneName ==
+                teamVsTeamSceneName ||
+            sceneName ==
+                deathmatchSceneName;
+    }
+
+    // ============================
+    // DEATHMATCH CHECK
+    // ============================
+
+    private bool IsDeathmatchScene()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        return
+            sceneName ==
+            deathmatchSceneName;
+    }
+
+    // ============================
+    // TRY SPAWN PLAYER
+    // ============================
 
     private void TrySpawnPlayer(
         PlayerRef player)
@@ -335,7 +433,6 @@ public class NetworkBootstrap :
         if (!runner.IsRunning)
             return;
 
-
         if (!runner.IsServer)
             return;
 
@@ -345,6 +442,9 @@ public class NetworkBootstrap :
             return;
         }
 
+        // ============================
+        // ALREADY SPAWNED?
+        // ============================
 
         if (runner.TryGetPlayerObject(
             player,
@@ -364,24 +464,9 @@ public class NetworkBootstrap :
             }
         }
 
-
-        TeamSpawnManager
-            teamSpawnManager =
-            FindFirstObjectByType<
-                TeamSpawnManager
-            >();
-
-        if (teamSpawnManager == null)
-        {
-            Debug.LogError(
-                "NETWORK BOOTSTRAP: " +
-                "TeamSpawnManager not found " +
-                "in ARENA."
-            );
-
-            return;
-        }
-
+        // ============================
+        // PREFAB VALIDATION
+        // ============================
 
         if (playerPrefab == null)
         {
@@ -393,87 +478,221 @@ public class NetworkBootstrap :
             return;
         }
 
+        // ============================
+        // SPAWN DATA
+        // ============================
 
-        PTeam.Team team;
-        int teamIndex;
+        Transform selectedSpawn =
+            null;
 
-        if (player.PlayerId % 2 != 0)
+        Vector3 spawnPosition =
+            Vector3.zero;
+
+        Quaternion spawnRotation =
+            Quaternion.identity;
+
+        string spawnDescription =
+            "";
+
+        // ============================
+        // DEATHMATCH SPAWN
+        // ============================
+
+        if (IsDeathmatchScene())
         {
-            team =
-                PTeam.Team.Red;
+            DeathmatchSpawnManager
+                deathmatchSpawnManager =
+                FindFirstObjectByType<
+                    DeathmatchSpawnManager
+                >();
 
-            teamIndex =
-                (player.PlayerId - 1) / 2;
+            if (deathmatchSpawnManager == null)
+            {
+                Debug.LogError(
+                    "NETWORK BOOTSTRAP: " +
+                    "DeathmatchSpawnManager " +
+                    "not found in DEATHMATCH."
+                );
+
+                return;
+            }
+
+            selectedSpawn =
+                deathmatchSpawnManager
+                    .GetRandomSpawnPoint();
+
+            if (selectedSpawn == null)
+            {
+                Debug.LogError(
+                    $"NO DEATHMATCH SPAWN FOUND | " +
+                    $"Player: {player.PlayerId}"
+                );
+
+                return;
+            }
+
+            spawnPosition =
+                selectedSpawn.position;
+
+            spawnRotation =
+                selectedSpawn.rotation;
+
+            Transform lookTarget =
+                deathmatchSpawnManager
+                    .LookTarget;
+
+            if (lookTarget != null)
+            {
+                Vector3 direction =
+                    lookTarget.position -
+                    selectedSpawn.position;
+
+                direction.y =
+                    0f;
+
+                if (direction.sqrMagnitude >
+                    0.001f)
+                {
+                    spawnRotation =
+                        Quaternion.LookRotation(
+                            direction.normalized,
+                            Vector3.up
+                        );
+                }
+            }
+
+            spawnDescription =
+                $"MODE: DEATHMATCH | " +
+                $"SPAWN: {selectedSpawn.name}";
+
+            Debug.Log(
+                $"DEATHMATCH INITIAL SPAWN SELECTED | " +
+                $"PLAYER: {player.PlayerId} | " +
+                $"SPAWN: {selectedSpawn.name} | " +
+                $"POSITION: {spawnPosition} | " +
+                $"ROTATION: {spawnRotation.eulerAngles}"
+            );
         }
+
+        // ============================
+        // TEAM VS TEAM SPAWN
+        // ============================
 
         else
         {
-            team =
-                PTeam.Team.Blue;
+            TeamSpawnManager
+                teamSpawnManager =
+                FindFirstObjectByType<
+                    TeamSpawnManager
+                >();
 
-            teamIndex =
-                (player.PlayerId / 2) - 1;
-        }
-
-
-        Transform selectedSpawn =
-            teamSpawnManager
-                .GetSpawnPoint(
-                    team,
-                    teamIndex
+            if (teamSpawnManager == null)
+            {
+                Debug.LogError(
+                    "NETWORK BOOTSTRAP: " +
+                    "TeamSpawnManager not found " +
+                    "in TEAM VS TEAM scene."
                 );
 
-        if (selectedSpawn == null)
-        {
-            Debug.LogError(
-                $"NO SPAWN FOUND | " +
-                $"Player: {player.PlayerId} | " +
-                $"Team: {team} | " +
-                $"TeamIndex: {teamIndex}"
-            );
+                return;
+            }
 
-            return;
-        }
+            PTeam.Team team;
+            int teamIndex;
 
-        Vector3 spawnPosition =
-            selectedSpawn.position;
+            if (player.PlayerId % 2 != 0)
+            {
+                team =
+                    PTeam.Team.Red;
 
+                teamIndex =
+                    (player.PlayerId - 1) / 2;
+            }
+            else
+            {
+                team =
+                    PTeam.Team.Blue;
 
-        Quaternion spawnRotation =
-            selectedSpawn.rotation;
+                teamIndex =
+                    (player.PlayerId / 2) - 1;
+            }
 
-        Transform lookTarget =
-            teamSpawnManager.LookTarget;
+            selectedSpawn =
+                teamSpawnManager
+                    .GetSpawnPoint(
+                        team,
+                        teamIndex
+                    );
 
-        if (lookTarget != null)
-        {
-            Vector3 direction =
-                lookTarget.position -
+            if (selectedSpawn == null)
+            {
+                Debug.LogError(
+                    $"NO TEAM SPAWN FOUND | " +
+                    $"Player: {player.PlayerId} | " +
+                    $"Team: {team} | " +
+                    $"TeamIndex: {teamIndex}"
+                );
+
+                return;
+            }
+
+            spawnPosition =
                 selectedSpawn.position;
 
-            direction.y =
-                0f;
+            spawnRotation =
+                selectedSpawn.rotation;
 
-            if (direction.sqrMagnitude >
-                0.001f)
+            Transform lookTarget =
+                teamSpawnManager
+                    .LookTarget;
+
+            if (lookTarget != null)
             {
-                spawnRotation =
-                    Quaternion.LookRotation(
-                        direction.normalized,
-                        Vector3.up
-                    );
+                Vector3 direction =
+                    lookTarget.position -
+                    selectedSpawn.position;
+
+                direction.y =
+                    0f;
+
+                if (direction.sqrMagnitude >
+                    0.001f)
+                {
+                    spawnRotation =
+                        Quaternion.LookRotation(
+                            direction.normalized,
+                            Vector3.up
+                        );
+                }
             }
+
+            spawnDescription =
+                $"MODE: TEAM VS TEAM | " +
+                $"TEAM: {team} | " +
+                $"TEAM INDEX: {teamIndex} | " +
+                $"SPAWN: {selectedSpawn.name}";
+
+            Debug.Log(
+                $"TEAM INITIAL SPAWN SELECTED | " +
+                $"PLAYER: {player.PlayerId} | " +
+                $"TEAM: {team} | " +
+                $"TEAM INDEX: {teamIndex} | " +
+                $"SPAWN: {selectedSpawn.name} | " +
+                $"POSITION: {spawnPosition}"
+            );
         }
+
+        // ============================
+        // SPAWN PLAYER
+        // ============================
 
         Debug.Log(
             $"ABOUT TO SPAWN PLAYER | " +
             $"ID: {player.PlayerId} | " +
-            $"TEAM: {team} | " +
-            $"SPAWN: {selectedSpawn.name} | " +
+            $"{spawnDescription} | " +
             $"POSITION: {spawnPosition} | " +
             $"ROTATION: {spawnRotation.eulerAngles}"
         );
-
 
         NetworkObject playerObject =
             runner.Spawn(
@@ -493,12 +712,18 @@ public class NetworkBootstrap :
             return;
         }
 
+        // ============================
+        // REGISTER PLAYER OBJECT
+        // ============================
 
         runner.SetPlayerObject(
             player,
             playerObject
         );
 
+        // ============================
+        // FORCE INITIAL POSITION
+        // ============================
 
         ForcePlayerToSpawn(
             playerObject,
@@ -517,9 +742,7 @@ public class NetworkBootstrap :
         Debug.Log(
             $"PLAYER SPAWNED BY HOST | " +
             $"ID: {player.PlayerId} | " +
-            $"TEAM: {team} | " +
-            $"TEAM INDEX: {teamIndex} | " +
-            $"SPAWN: {selectedSpawn.name} | " +
+            $"{spawnDescription} | " +
             $"REQUESTED POSITION: " +
             $"{spawnPosition} | " +
             $"ACTUAL POSITION: " +
@@ -529,6 +752,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // FORCE PLAYER TO SPAWN
+    // ============================
 
     private void ForcePlayerToSpawn(
         NetworkObject playerObject,
@@ -581,7 +807,8 @@ public class NetworkBootstrap :
         else
         {
             Debug.LogWarning(
-                $"PLAYER {playerObject.InputAuthority.PlayerId} " +
+                $"PLAYER " +
+                $"{playerObject.InputAuthority.PlayerId} " +
                 $"does not have NetworkTransform."
             );
         }
@@ -601,6 +828,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // VERIFY SPAWN NEXT FRAME
+    // ============================
 
     private IEnumerator
         ForcePlayerToSpawnNextFrame(
@@ -637,6 +867,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // PLAYER LEFT
+    // ============================
 
     public void OnPlayerLeft(
         NetworkRunner runner,
@@ -664,6 +897,9 @@ public class NetworkBootstrap :
         }
     }
 
+    // ============================
+    // INPUT
+    // ============================
 
     public void OnInput(
         NetworkRunner runner,
@@ -672,9 +908,12 @@ public class NetworkBootstrap :
         PlayerNetworkInput playerInput =
             new PlayerNetworkInput();
 
-
         Vector2 move =
             Vector2.zero;
+
+        // ============================
+        // MOVEMENT INPUT
+        // ============================
 
         if (Input.GetKey(
             KeyCode.W))
@@ -710,6 +949,9 @@ public class NetworkBootstrap :
                 1f
             );
 
+        // ============================
+        // JUMP
+        // ============================
 
         playerInput.Buttons.Set(
             PlayerInputButton.Jump,
@@ -718,6 +960,9 @@ public class NetworkBootstrap :
             )
         );
 
+        // ============================
+        // GHOST STEP
+        // ============================
 
         playerInput.Buttons.Set(
             PlayerInputButton.GhostForward,
@@ -739,6 +984,9 @@ public class NetworkBootstrap :
             pendingGhostRight
         );
 
+        // ============================
+        // SEND INPUT
+        // ============================
 
         input.Set(
             playerInput
@@ -757,6 +1005,9 @@ public class NetworkBootstrap :
             false;
     }
 
+    // ============================
+    // INPUT MISSING
+    // ============================
 
     public void OnInputMissing(
         NetworkRunner runner,
@@ -765,6 +1016,9 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // CONNECTED
+    // ============================
 
     public void OnConnectedToServer(
         NetworkRunner runner)
@@ -776,6 +1030,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // DISCONNECTED
+    // ============================
 
     public void OnDisconnectedFromServer(
         NetworkRunner runner,
@@ -787,6 +1044,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // CONNECTION REQUEST
+    // ============================
 
     public void OnConnectRequest(
         NetworkRunner runner,
@@ -804,6 +1064,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // CONNECTION FAILED
+    // ============================
 
     public void OnConnectFailed(
         NetworkRunner runner,
@@ -816,6 +1079,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // SHUTDOWN
+    // ============================
 
     public void OnShutdown(
         NetworkRunner runner,
@@ -827,6 +1093,9 @@ public class NetworkBootstrap :
         );
     }
 
+    // ============================
+    // SESSION LIST
+    // ============================
 
     public void OnSessionListUpdated(
         NetworkRunner runner,
@@ -834,6 +1103,9 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // CUSTOM AUTHENTICATION
+    // ============================
 
     public void OnCustomAuthenticationResponse(
         NetworkRunner runner,
@@ -841,6 +1113,9 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // HOST MIGRATION
+    // ============================
 
     public void OnHostMigration(
         NetworkRunner runner,
@@ -848,12 +1123,18 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // SCENE LOAD START
+    // ============================
 
     public void OnSceneLoadStart(
         NetworkRunner runner)
     {
     }
 
+    // ============================
+    // AOI ENTER
+    // ============================
 
     public void OnObjectEnterAOI(
         NetworkRunner runner,
@@ -862,6 +1143,9 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // AOI EXIT
+    // ============================
 
     public void OnObjectExitAOI(
         NetworkRunner runner,
@@ -870,6 +1154,9 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // RELIABLE DATA
+    // ============================
 
     public void OnReliableDataReceived(
         NetworkRunner runner,
@@ -879,6 +1166,9 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // RELIABLE DATA PROGRESS
+    // ============================
 
     public void OnReliableDataProgress(
         NetworkRunner runner,
@@ -888,6 +1178,9 @@ public class NetworkBootstrap :
     {
     }
 
+    // ============================
+    // USER SIMULATION MESSAGE
+    // ============================
 
     public void OnUserSimulationMessage(
         NetworkRunner runner,

@@ -1,11 +1,15 @@
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [RequireComponent(typeof(CharacterController))]
 public class PMovement : NetworkBehaviour
 {
-  
-    [Header("Movimiento")]
+    // ============================
+    // MOVEMENT
+    // ============================
+
+    [Header("Movement")]
     [SerializeField]
     private float moveSpeed = 6f;
 
@@ -15,7 +19,19 @@ public class PMovement : NetworkBehaviour
     [SerializeField]
     private float gravity = -10f;
 
-    
+    // ============================
+    // GAME SCENES
+    // ============================
+
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // GHOST STEP
+    // ============================
+
     [Header("Ghost Step")]
     [SerializeField]
     private float ghostStepDistance = 3f;
@@ -26,15 +42,25 @@ public class PMovement : NetworkBehaviour
     [SerializeField]
     private float ghostStepCooldown = 0.5f;
 
-    
-    [Header("Partículas")]
+    // ============================
+    // PARTICLES
+    // ============================
+
+    [Header("Particles")]
     [SerializeField]
     private ParticleSystem footstepParticles;
 
+    // ============================
+    // ANIMATION
+    // ============================
 
-    [Header("Animaciones")]
-    [SerializeField] private Animator animator;
+    [Header("Animations")]
+    [SerializeField]
+    private Animator animator;
 
+    // ============================
+    // NETWORK STATE
+    // ============================
 
     [Networked]
     private NetworkBool IsMoving
@@ -51,14 +77,29 @@ public class PMovement : NetworkBehaviour
     }
 
     [Networked]
-    private float MoveX { get; set; }
+    private float MoveX
+    {
+        get;
+        set;
+    }
 
     [Networked]
-    private float MoveY { get; set; }
+    private float MoveY
+    {
+        get;
+        set;
+    }
 
     [Networked]
-    private NetworkBool IsJumping { get; set; }
+    private NetworkBool IsJumping
+    {
+        get;
+        set;
+    }
 
+    // ============================
+    // REFERENCES
+    // ============================
 
     private CharacterController controller;
 
@@ -66,9 +107,18 @@ public class PMovement : NetworkBehaviour
 
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
+
+    // ============================
+    // MOVEMENT STATE
+    // ============================
 
     private float verticalVelocity;
 
+    // ============================
+    // GHOST STEP STATE
+    // ============================
 
     private bool isGhostStepping;
 
@@ -79,6 +129,9 @@ public class PMovement : NetworkBehaviour
     private float lastGhostStepTime =
         -10f;
 
+    // ============================
+    // AWAKE
+    // ============================
 
     private void Awake()
     {
@@ -88,11 +141,16 @@ public class PMovement : NetworkBehaviour
         health =
             GetComponent<PHealth>();
 
-
         if (animator == null)
-            animator = GetComponentInChildren<Animator>();
+        {
+            animator =
+                GetComponentInChildren<Animator>();
+        }
     }
 
+    // ============================
+    // SPAWNED
+    // ============================
 
     public override void Spawned()
     {
@@ -113,6 +171,11 @@ public class PMovement : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         verticalVelocity =
             0f;
 
@@ -125,25 +188,42 @@ public class PMovement : NetworkBehaviour
         lastGhostStepTime =
             -10f;
 
-
         if (Object.HasStateAuthority)
         {
-            IsMoving = false;
-            IsJumping = false;
-            MoveX = 0f;
-            MoveY = 0f;
-            PreviousButtons = default;
+            IsMoving =
+                false;
+
+            IsJumping =
+                false;
+
+            MoveX =
+                0f;
+
+            MoveY =
+                0f;
+
+            PreviousButtons =
+                default;
         }
+
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
 
         Debug.Log(
             $"PMOVEMENT READY | " +
             $"PLAYER: {Object.InputAuthority.PlayerId} | " +
             $"STATE AUTHORITY: {Object.HasStateAuthority} | " +
             $"INPUT AUTHORITY: {Object.HasInputAuthority} | " +
+            $"SCENE: {sceneName} | " +
             $"POSITION: {transform.position}"
         );
     }
 
+    // ============================
+    // FIXED UPDATE NETWORK
+    // ============================
 
     public override void FixedUpdateNetwork()
     {
@@ -153,12 +233,10 @@ public class PMovement : NetworkBehaviour
             return;
         }
 
-
         if (!Object.HasStateAuthority)
         {
             return;
         }
-
 
         NetworkButtons pressed =
             input.Buttons.GetPressed(
@@ -168,13 +246,15 @@ public class PMovement : NetworkBehaviour
         PreviousButtons =
             input.Buttons;
 
+        // ============================
+        // HEALTH
+        // ============================
 
         if (health == null)
         {
             health =
                 GetComponent<PHealth>();
         }
-
 
         if (health != null &&
             health.IsDead)
@@ -184,24 +264,20 @@ public class PMovement : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // CAN PLAYER MOVE?
+        // ============================
 
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanPlayerMove())
         {
             StopMovementState();
 
             return;
         }
 
+        // ============================
+        // CHARACTER CONTROLLER
+        // ============================
 
         if (controller == null)
         {
@@ -225,6 +301,9 @@ public class PMovement : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // GRAVITY
+        // ============================
 
         if (controller.isGrounded &&
             verticalVelocity < 0f)
@@ -237,6 +316,9 @@ public class PMovement : NetworkBehaviour
             gravity *
             Runner.DeltaTime;
 
+        // ============================
+        // JUMP
+        // ============================
 
         if (pressed.IsSet(
                 PlayerInputButton.Jump) &&
@@ -245,9 +327,13 @@ public class PMovement : NetworkBehaviour
             verticalVelocity =
                 jumpForce;
 
-            IsJumping = true;
+            IsJumping =
+                true;
         }
 
+        // ============================
+        // GHOST STEP INPUT
+        // ============================
 
         if (!isGhostStepping)
         {
@@ -259,7 +345,6 @@ public class PMovement : NetworkBehaviour
                     transform.forward
                 );
             }
-
             else if (pressed.IsSet(
                 PlayerInputButton
                     .GhostBackward))
@@ -268,7 +353,6 @@ public class PMovement : NetworkBehaviour
                     -transform.forward
                 );
             }
-
             else if (pressed.IsSet(
                 PlayerInputButton
                     .GhostLeft))
@@ -277,7 +361,6 @@ public class PMovement : NetworkBehaviour
                     -transform.right
                 );
             }
-
             else if (pressed.IsSet(
                 PlayerInputButton
                     .GhostRight))
@@ -288,6 +371,9 @@ public class PMovement : NetworkBehaviour
             }
         }
 
+        // ============================
+        // GHOST STEP MOVEMENT
+        // ============================
 
         if (isGhostStepping)
         {
@@ -299,12 +385,18 @@ public class PMovement : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // NORMAL MOVEMENT
+        // ============================
 
         Vector2 moveInput =
             input.MoveDirection;
 
-        MoveX = moveInput.x;
-        MoveY = moveInput.y;
+        MoveX =
+            moveInput.x;
+
+        MoveY =
+            moveInput.y;
 
         Vector3 inputDirection =
             transform.forward *
@@ -338,12 +430,79 @@ public class PMovement : NetworkBehaviour
             Runner.DeltaTime
         );
 
-        if (IsJumping && controller.isGrounded && verticalVelocity <= 0f)
+        // ============================
+        // JUMP STATE
+        // ============================
+
+        if (IsJumping &&
+            controller.isGrounded &&
+            verticalVelocity <= 0f)
         {
-            IsJumping = false;
+            IsJumping =
+                false;
         }
     }
 
+    // ============================
+    // CAN PLAYER MOVE
+    // ============================
+
+    private bool CanPlayerMove()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        return
+            gameManager.CanPlay;
+    }
+
+    // ============================
+    // STOP MOVEMENT STATE
+    // ============================
 
     private void StopMovementState()
     {
@@ -359,11 +518,22 @@ public class PMovement : NetworkBehaviour
         ghostStepTimeRemaining =
             0f;
 
-        MoveX = 0f;
-        MoveY = 0f;
-        IsJumping = false;
+        MoveX =
+            0f;
+
+        MoveY =
+            0f;
+
+        IsJumping =
+            false;
+
+        verticalVelocity =
+            0f;
     }
 
+    // ============================
+    // TRY GHOST STEP
+    // ============================
 
     private void TryGhostStep(
         Vector3 direction)
@@ -411,6 +581,9 @@ public class PMovement : NetworkBehaviour
         );
     }
 
+    // ============================
+    // UPDATE GHOST STEP
+    // ============================
 
     private void UpdateGhostStep()
     {
@@ -475,15 +648,33 @@ public class PMovement : NetworkBehaviour
         }
     }
 
+    // ============================
+    // RENDER
+    // ============================
 
     public override void Render()
     {
         if (animator != null)
         {
-            animator.SetBool("IsMoving", IsMoving);
-            animator.SetFloat("MoveX", MoveX);
-            animator.SetFloat("MoveY", MoveY);
-            animator.SetBool("IsJumping", IsJumping);
+            animator.SetBool(
+                "IsMoving",
+                IsMoving
+            );
+
+            animator.SetFloat(
+                "MoveX",
+                MoveX
+            );
+
+            animator.SetFloat(
+                "MoveY",
+                MoveY
+            );
+
+            animator.SetBool(
+                "IsJumping",
+                IsJumping
+            );
         }
 
         if (footstepParticles == null)

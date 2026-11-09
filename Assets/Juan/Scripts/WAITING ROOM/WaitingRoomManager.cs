@@ -6,14 +6,30 @@ using UnityEngine.UI;
 
 public class WaitingRoomManager : NetworkBehaviour
 {
-    
+    // ============================
+    // COUNTDOWN
+    // ============================
+
     [Header("Countdown")]
     [SerializeField]
     private float countdownDuration = 30f;
 
-    [Header("Arena Scene")]
+    // ============================
+    // GAME SCENES
+    // ============================
+
+    [Header("Game Scenes")]
     [SerializeField]
-    private string arenaSceneName = "ARENA";
+    private string teamVsTeamSceneName =
+        "ARENA";
+
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // UI
+    // ============================
 
     [Header("UI")]
     [SerializeField]
@@ -25,6 +41,24 @@ public class WaitingRoomManager : NetworkBehaviour
     [SerializeField]
     private Button startMatchButton;
 
+    // ============================
+    // GAME MODE PANELS
+    // ============================
+
+    [Header("Game Mode Panels")]
+    [SerializeField]
+    private GameObject redTeamPanel;
+
+    [SerializeField]
+    private GameObject blueTeamPanel;
+
+    [SerializeField]
+    private GameObject deathmatchPanel;
+
+    // ============================
+    // TEAM VS TEAM SLOTS
+    // ============================
+
     [Header("RED Slots")]
     [SerializeField]
     private TMP_Text[] redSlots;
@@ -33,7 +67,18 @@ public class WaitingRoomManager : NetworkBehaviour
     [SerializeField]
     private TMP_Text[] blueSlots;
 
-    
+    // ============================
+    // DEATHMATCH SLOTS
+    // ============================
+
+    [Header("DEATHMATCH Slots")]
+    [SerializeField]
+    private TMP_Text[] deathmatchSlots;
+
+    // ============================
+    // NETWORK STATE
+    // ============================
+
     [Networked]
     public int RedPlayerCount { get; set; }
 
@@ -49,7 +94,17 @@ public class WaitingRoomManager : NetworkBehaviour
     [Networked]
     private NetworkBool SceneChangeStarted { get; set; }
 
-    
+    // ============================
+    // NETWORK GAME MODE
+    // ============================
+
+    [Networked]
+    public int NetworkGameMode { get; set; }
+
+    // ============================
+    // PLAYER NAMES
+    // ============================
+
     [Networked]
     [Capacity(16)]
     private NetworkDictionary<
@@ -57,15 +112,24 @@ public class WaitingRoomManager : NetworkBehaviour
         NetworkString<_16>>
         PlayerNames => default;
 
-    
+    // ============================
+    // LOCAL STATE
+    // ============================
+
     private bool localNameSubmitted;
 
+    // ============================
+    // SPAWNED
+    // ============================
 
     public override void Spawned()
     {
         localNameSubmitted =
             false;
 
+        // ============================
+        // HOST INITIALIZATION
+        // ============================
 
         if (Object.HasStateAuthority)
         {
@@ -84,10 +148,20 @@ public class WaitingRoomManager : NetworkBehaviour
             SceneChangeStarted =
                 false;
 
+            // ============================
+            // SYNC SELECTED GAME MODE
+            // ============================
+
+            NetworkGameMode =
+                (int)GameSettings.SelectedGameMode;
+
             Debug.Log(
-                "WAITING ROOM HOST INITIALIZED"
+                $"WAITING ROOM HOST INITIALIZED | " +
+                $"GAME MODE: {GetGameModeName()}"
             );
         }
+
+        UpdateGameModePanels();
 
         UpdateUI();
 
@@ -102,6 +176,9 @@ public class WaitingRoomManager : NetworkBehaviour
         );
     }
 
+    // ============================
+    // UPDATE
+    // ============================
 
     private void Update()
     {
@@ -120,10 +197,12 @@ public class WaitingRoomManager : NetworkBehaviour
         SubmitLocalPlayerName();
     }
 
+    // ============================
+    // FIXED UPDATE NETWORK
+    // ============================
 
     public override void FixedUpdateNetwork()
     {
-
         if (!Object.HasStateAuthority)
             return;
 
@@ -132,6 +211,28 @@ public class WaitingRoomManager : NetworkBehaviour
         UpdateCountdown();
     }
 
+    // ============================
+    // GAME MODE HELPERS
+    // ============================
+
+    private bool IsDeathmatch()
+    {
+        return NetworkGameMode ==
+            (int)GameSettings
+                .GameMode
+                .Deathmatch;
+    }
+
+    private string GetGameModeName()
+    {
+        return IsDeathmatch()
+            ? "DEATHMATCH"
+            : "TEAM VS TEAM";
+    }
+
+    // ============================
+    // SUBMIT LOCAL PLAYER NAME
+    // ============================
 
     private void SubmitLocalPlayerName()
     {
@@ -158,7 +259,6 @@ public class WaitingRoomManager : NetworkBehaviour
         {
             return;
         }
-
 
         string playerName =
             PlayerProfile.PlayerName;
@@ -203,6 +303,9 @@ public class WaitingRoomManager : NetworkBehaviour
         );
     }
 
+    // ============================
+    // PLAYER NAME RPC
+    // ============================
 
     [Rpc(
         RpcSources.All,
@@ -255,6 +358,9 @@ public class WaitingRoomManager : NetworkBehaviour
         );
     }
 
+    // ============================
+    // GET PLAYER NAME
+    // ============================
 
     private string GetPlayerName(
         PlayerRef player)
@@ -277,6 +383,9 @@ public class WaitingRoomManager : NetworkBehaviour
             $"PLAYER {player.PlayerId}";
     }
 
+    // ============================
+    // UPDATE PLAYER COUNTS
+    // ============================
 
     private void UpdatePlayerCounts()
     {
@@ -296,13 +405,10 @@ public class WaitingRoomManager : NetworkBehaviour
             PlayerRef player
             in Runner.ActivePlayers)
         {
-
             if (player.PlayerId % 2 != 0)
             {
                 redCount++;
             }
-
-
             else
             {
                 blueCount++;
@@ -316,6 +422,9 @@ public class WaitingRoomManager : NetworkBehaviour
             blueCount;
     }
 
+    // ============================
+    // CAN START MATCH
+    // ============================
 
     private bool CanStartMatch()
     {
@@ -325,6 +434,9 @@ public class WaitingRoomManager : NetworkBehaviour
             !SceneChangeStarted;
     }
 
+    // ============================
+    // UPDATE COUNTDOWN
+    // ============================
 
     private void UpdateCountdown()
     {
@@ -336,7 +448,6 @@ public class WaitingRoomManager : NetworkBehaviour
 
         bool canStart =
             CanStartMatch();
-
 
         if (!canStart)
         {
@@ -357,7 +468,6 @@ public class WaitingRoomManager : NetworkBehaviour
             return;
         }
 
-
         if (!CountdownStarted)
         {
             CountdownStarted =
@@ -372,13 +482,11 @@ public class WaitingRoomManager : NetworkBehaviour
             Debug.Log(
                 $"COUNTDOWN STARTED | " +
                 $"{countdownDuration} SECONDS | " +
-                $"RED: {RedPlayerCount} | " +
-                $"BLUE: {BluePlayerCount}"
+                $"GAME MODE: {GetGameModeName()}"
             );
 
             return;
         }
-
 
         if (CountdownTimer.Expired(
             Runner))
@@ -389,6 +497,9 @@ public class WaitingRoomManager : NetworkBehaviour
         }
     }
 
+    // ============================
+    // REQUEST START MATCH
+    // ============================
 
     public void RequestStartMatch()
     {
@@ -397,7 +508,6 @@ public class WaitingRoomManager : NetworkBehaviour
 
         if (!Object.IsValid)
             return;
-
 
         if (!Object.HasStateAuthority)
         {
@@ -426,14 +536,15 @@ public class WaitingRoomManager : NetworkBehaviour
         {
             Debug.Log(
                 "START MATCH BLOCKED | " +
-                "NEED AT LEAST 1 RED AND 1 BLUE"
+                "NOT ENOUGH PLAYERS"
             );
 
             return;
         }
 
         Debug.Log(
-            "HOST PRESSED START MATCH"
+            $"HOST PRESSED START MATCH | " +
+            $"GAME MODE: {GetGameModeName()}"
         );
 
         StartMatch(
@@ -441,11 +552,13 @@ public class WaitingRoomManager : NetworkBehaviour
         );
     }
 
+    // ============================
+    // START MATCH
+    // ============================
 
     private void StartMatch(
         string reason)
     {
-
         if (!Object.HasStateAuthority)
             return;
 
@@ -458,67 +571,85 @@ public class WaitingRoomManager : NetworkBehaviour
         if (!CanStartMatch())
             return;
 
-
         CountdownStarted =
             false;
 
         CountdownTimer =
             TickTimer.None;
 
-
         SceneChangeStarted =
             true;
 
+        string selectedScene =
+            GetSelectedSceneName();
+
         Debug.Log(
             $"{reason} | " +
-            $"LOADING ARENA | " +
-            $"RED: {RedPlayerCount} | " +
-            $"BLUE: {BluePlayerCount}"
+            $"GAME MODE: {GetGameModeName()} | " +
+            $"LOADING SCENE: {selectedScene}"
         );
 
-        LoadArena();
+        LoadSelectedGameScene();
     }
 
+    // ============================
+    // GET SELECTED SCENE
+    // ============================
 
-    private void LoadArena()
+    private string GetSelectedSceneName()
+    {
+        if (IsDeathmatch())
+        {
+            return deathmatchSceneName;
+        }
+
+        return teamVsTeamSceneName;
+    }
+
+    // ============================
+    // LOAD SELECTED GAME SCENE
+    // ============================
+
+    private void LoadSelectedGameScene()
     {
         if (Runner == null)
             return;
 
-
         if (!Object.HasStateAuthority)
-        {
-            Debug.Log(
-                "WAITING ROOM: " +
-                "NOT STATE AUTHORITY"
-            );
-
             return;
-        }
 
         if (!Runner.IsSceneAuthority)
+            return;
+
+        string selectedSceneName =
+            GetSelectedSceneName();
+
+        if (string.IsNullOrWhiteSpace(
+            selectedSceneName))
         {
-            Debug.Log(
+            Debug.LogError(
                 "WAITING ROOM: " +
-                "THIS CLIENT IS NOT SCENE AUTHORITY"
+                "SELECTED SCENE NAME IS EMPTY"
             );
+
+            SceneChangeStarted =
+                false;
 
             return;
         }
 
-
-        int arenaBuildIndex =
+        int sceneBuildIndex =
             SceneUtility
                 .GetBuildIndexByScenePath(
                     $"Assets/Scenes/" +
-                    $"{arenaSceneName}.unity"
+                    $"{selectedSceneName}.unity"
                 );
 
-        if (arenaBuildIndex < 0)
+        if (sceneBuildIndex < 0)
         {
             Debug.LogError(
                 $"WAITING ROOM: " +
-                $"SCENE {arenaSceneName} " +
+                $"SCENE {selectedSceneName} " +
                 $"NOT FOUND IN BUILD PROFILE"
             );
 
@@ -528,35 +659,43 @@ public class WaitingRoomManager : NetworkBehaviour
             return;
         }
 
-        SceneRef arenaScene =
+        SceneRef selectedScene =
             SceneRef.FromIndex(
-                arenaBuildIndex
+                sceneBuildIndex
             );
 
         Debug.Log(
             $"HOST LOADING NETWORK SCENE | " +
-            $"{arenaSceneName} | " +
-            $"Build Index: {arenaBuildIndex}"
+            $"GAME MODE: {GetGameModeName()} | " +
+            $"SCENE: {selectedSceneName} | " +
+            $"BUILD INDEX: {sceneBuildIndex}"
         );
 
-
         Runner.LoadScene(
-            arenaScene,
+            selectedScene,
             LoadSceneMode.Single
         );
     }
 
+    // ============================
+    // RENDER
+    // ============================
 
     public override void Render()
     {
         UpdateUI();
     }
 
+    // ============================
+    // UPDATE UI
+    // ============================
 
     private void UpdateUI()
     {
         if (Runner == null)
             return;
+
+        UpdateGameModePanels();
 
         UpdateStatusText();
 
@@ -567,6 +706,40 @@ public class WaitingRoomManager : NetworkBehaviour
         UpdateStartButton();
     }
 
+    // ============================
+    // GAME MODE PANELS
+    // ============================
+
+    private void UpdateGameModePanels()
+    {
+        bool isDeathmatch =
+            IsDeathmatch();
+
+        if (redTeamPanel != null)
+        {
+            redTeamPanel.SetActive(
+                !isDeathmatch
+            );
+        }
+
+        if (blueTeamPanel != null)
+        {
+            blueTeamPanel.SetActive(
+                !isDeathmatch
+            );
+        }
+
+        if (deathmatchPanel != null)
+        {
+            deathmatchPanel.SetActive(
+                isDeathmatch
+            );
+        }
+    }
+
+    // ============================
+    // STATUS TEXT
+    // ============================
 
     private void UpdateStatusText()
     {
@@ -594,6 +767,9 @@ public class WaitingRoomManager : NetworkBehaviour
         }
     }
 
+    // ============================
+    // COUNTDOWN TEXT
+    // ============================
 
     private void UpdateCountdownText()
     {
@@ -653,6 +829,9 @@ public class WaitingRoomManager : NetworkBehaviour
             $"{displaySeconds:00}";
     }
 
+    // ============================
+    // START BUTTON
+    // ============================
 
     private void UpdateStartButton()
     {
@@ -669,7 +848,6 @@ public class WaitingRoomManager : NetworkBehaviour
 
             return;
         }
-
 
         bool isHost =
             Object != null &&
@@ -688,7 +866,6 @@ public class WaitingRoomManager : NetworkBehaviour
             return;
         }
 
-
         bool shouldShow =
             RedPlayerCount >= 1 &&
             BluePlayerCount >= 1 &&
@@ -704,6 +881,9 @@ public class WaitingRoomManager : NetworkBehaviour
             shouldShow;
     }
 
+    // ============================
+    // PLAYER SLOTS
+    // ============================
 
     private void UpdatePlayerSlots()
     {
@@ -717,6 +897,55 @@ public class WaitingRoomManager : NetworkBehaviour
         ClearSlots(
             blueSlots
         );
+
+        ClearSlots(
+            deathmatchSlots
+        );
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (IsDeathmatch())
+        {
+            int deathmatchIndex =
+                0;
+
+            foreach (
+                PlayerRef player
+                in Runner.ActivePlayers)
+            {
+                if (deathmatchSlots == null)
+                    break;
+
+                if (deathmatchIndex >=
+                    deathmatchSlots.Length)
+                {
+                    break;
+                }
+
+                TMP_Text slot =
+                    deathmatchSlots[
+                        deathmatchIndex
+                    ];
+
+                if (slot != null)
+                {
+                    slot.text =
+                        GetPlayerName(
+                            player
+                        );
+                }
+
+                deathmatchIndex++;
+            }
+
+            return;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
 
         int redIndex =
             0;
@@ -732,7 +961,6 @@ public class WaitingRoomManager : NetworkBehaviour
                 GetPlayerName(
                     player
                 );
-
 
             if (player.PlayerId % 2 != 0)
             {
@@ -752,8 +980,6 @@ public class WaitingRoomManager : NetworkBehaviour
 
                 redIndex++;
             }
-
-
             else
             {
                 if (blueSlots != null &&
@@ -775,6 +1001,9 @@ public class WaitingRoomManager : NetworkBehaviour
         }
     }
 
+    // ============================
+    // CLEAR SLOTS
+    // ============================
 
     private void ClearSlots(
         TMP_Text[] slots)

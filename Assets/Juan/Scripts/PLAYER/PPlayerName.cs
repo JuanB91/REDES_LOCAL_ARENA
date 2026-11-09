@@ -1,13 +1,21 @@
 using Fusion;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PPlayerName : NetworkBehaviour
 {
-    
+    // ============================
+    // REFERENCES
+    // ============================
+
     [Header("References")]
     [SerializeField]
     private TMP_Text nameText;
+
+    // ============================
+    // SETTINGS
+    // ============================
 
     [Header("Settings")]
     [SerializeField]
@@ -22,12 +30,41 @@ public class PPlayerName : NetworkBehaviour
     [SerializeField]
     private float rotationOffsetY = 180f;
 
+    // ============================
+    // TEAM COLORS
+    // ============================
+
+    [Header("Team Colors")]
+    [SerializeField]
+    private string teamVsTeamSceneName =
+        "ARENA";
+
+    [SerializeField]
+    private Color redTeamColor =
+        Color.red;
+
+    [SerializeField]
+    private Color blueTeamColor =
+        Color.blue;
+
+    [SerializeField]
+    private Color defaultNameColor =
+        Color.white;
+
+    // ============================
+    // NETWORK
+    // ============================
+
     [Networked]
     private NetworkString<_16> NetworkPlayerName
     {
         get;
         set;
     }
+
+    // ============================
+    // LOCAL
+    // ============================
 
     private Camera localCamera;
 
@@ -36,13 +73,24 @@ public class PPlayerName : NetworkBehaviour
     private string lastDisplayedName =
         "";
 
-    
+    private PTeam team;
+
+    private PTeam.Team lastDisplayedTeam;
+
+    private bool teamColorInitialized;
+
+    // ============================
+    // SPAWNED
+    // ============================
+
     public override void Spawned()
     {
         nameSubmitted =
             false;
 
-        
+        teamColorInitialized =
+            false;
+
         if (nameText == null)
         {
             nameText =
@@ -59,7 +107,9 @@ public class PPlayerName : NetworkBehaviour
             );
         }
 
-  
+        team =
+            GetComponent<PTeam>();
+
         if (Object.HasInputAuthority)
         {
             Debug.Log(
@@ -84,7 +134,10 @@ public class PPlayerName : NetworkBehaviour
         );
     }
 
-    
+    // ============================
+    // SUBMIT LOCAL PLAYER NAME
+    // ============================
+
     private void SubmitLocalPlayerName()
     {
         if (!Object.HasInputAuthority)
@@ -110,7 +163,6 @@ public class PPlayerName : NetworkBehaviour
             $"Name: '{localName}'"
         );
 
-        
         if (Object.HasStateAuthority)
         {
             SetPlayerNameAuthoritative(
@@ -124,6 +176,10 @@ public class PPlayerName : NetworkBehaviour
             localName
         );
     }
+
+    // ============================
+    // SUBMIT NAME RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -146,7 +202,10 @@ public class PPlayerName : NetworkBehaviour
         );
     }
 
-    
+    // ============================
+    // SET PLAYER NAME
+    // ============================
+
     private void SetPlayerNameAuthoritative(
         string playerName)
     {
@@ -167,6 +226,10 @@ public class PPlayerName : NetworkBehaviour
             $"Name: '{playerName}'"
         );
     }
+
+    // ============================
+    // SANITIZE NAME
+    // ============================
 
     private string SanitizePlayerName(
         string playerName)
@@ -210,11 +273,18 @@ public class PPlayerName : NetworkBehaviour
         return playerName;
     }
 
-    
+    // ============================
+    // RENDER
+    // ============================
+
     public override void Render()
     {
         UpdateNameVisual();
     }
+
+    // ============================
+    // FIND LOCAL CAMERA
+    // ============================
 
     private void FindLocalCamera()
     {
@@ -263,7 +333,10 @@ public class PPlayerName : NetworkBehaviour
             Camera.main;
     }
 
-    
+    // ============================
+    // UPDATE NAME
+    // ============================
+
     private void UpdateNameVisual()
     {
         if (nameText == null)
@@ -275,7 +348,10 @@ public class PPlayerName : NetworkBehaviour
         if (!Object.IsValid)
             return;
 
-        
+        // ============================
+        // HIDE LOCAL PLAYER NAME
+        // ============================
+
         if (hideForLocalPlayer &&
             Object.HasInputAuthority)
         {
@@ -302,7 +378,10 @@ public class PPlayerName : NetworkBehaviour
                 );
         }
 
-        
+        // ============================
+        // DISPLAY NAME
+        // ============================
+
         string displayName =
             NetworkPlayerName.Value;
 
@@ -330,7 +409,113 @@ public class PPlayerName : NetworkBehaviour
                 $"Name: '{displayName}'"
             );
         }
+
+        // ============================
+        // TEAM COLOR
+        // ============================
+
+        UpdateTeamColor();
     }
+
+    // ============================
+    // UPDATE TEAM COLOR
+    // ============================
+
+    private void UpdateTeamColor()
+    {
+        if (nameText == null)
+            return;
+
+        // Team colors are only used
+        // in the Team vs Team scene.
+        if (SceneManager
+                .GetActiveScene()
+                .name !=
+            teamVsTeamSceneName)
+        {
+            if (nameText.color !=
+                defaultNameColor)
+            {
+                nameText.color =
+                    defaultNameColor;
+            }
+
+            teamColorInitialized =
+                false;
+
+            return;
+        }
+
+        if (team == null)
+        {
+            team =
+                GetComponent<PTeam>();
+        }
+
+        if (team == null)
+        {
+            nameText.color =
+                defaultNameColor;
+
+            return;
+        }
+
+        if (team.Object == null)
+            return;
+
+        if (!team.Object.IsValid)
+            return;
+
+        PTeam.Team currentTeam =
+            team.CurrentTeam;
+
+        if (teamColorInitialized &&
+            currentTeam ==
+            lastDisplayedTeam)
+        {
+            return;
+        }
+
+        switch (currentTeam)
+        {
+            case PTeam.Team.Red:
+
+                nameText.color =
+                    redTeamColor;
+
+                break;
+
+            case PTeam.Team.Blue:
+
+                nameText.color =
+                    blueTeamColor;
+
+                break;
+
+            default:
+
+                nameText.color =
+                    defaultNameColor;
+
+                break;
+        }
+
+        lastDisplayedTeam =
+            currentTeam;
+
+        teamColorInitialized =
+            true;
+
+        Debug.Log(
+            $"PLAYER NAME COLOR UPDATED | " +
+            $"Player: {Object.InputAuthority.PlayerId} | " +
+            $"Team: {currentTeam}"
+        );
+    }
+
+    // ============================
+    // BILLBOARD
+    // ============================
 
     private void LateUpdate()
     {
@@ -344,7 +529,6 @@ public class PPlayerName : NetworkBehaviour
             return;
         }
 
-    
         if (localCamera == null ||
             !localCamera.enabled)
         {
@@ -380,7 +564,6 @@ public class PPlayerName : NetworkBehaviour
             return;
         }
 
-        
         Quaternion lookRotation =
             Quaternion.LookRotation(
                 direction

@@ -1,10 +1,10 @@
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PRocketLauncher : NetworkBehaviour
 {
-
-    [Header("Referencias")]
+    [Header("References")]
     [SerializeField]
     private Camera playerCamera;
 
@@ -14,32 +14,32 @@ public class PRocketLauncher : NetworkBehaviour
     [SerializeField]
     private PHealth health;
 
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
 
-    [Header("Proyectil")]
+    [Header("Projectile")]
     [SerializeField]
     private NetworkPrefabRef rocketPrefab;
 
     [SerializeField]
     private Transform rocketSpawnPoint;
 
-
-    [Header("Disparo")]
+    [Header("Fire")]
     [SerializeField]
     private float timeBetweenShots = 0.8f;
 
     [SerializeField]
     private float spawnForwardOffset = 1f;
 
-
-    [Header("Recarga")]
+    [Header("Reload")]
     [SerializeField]
     private float reloadTime = 1.5f;
-
 
     [Header("Debug")]
     [SerializeField]
     private bool showDebug = true;
-
 
     [Networked]
     private NetworkBool IsReloadingNetworked
@@ -62,15 +62,15 @@ public class PRocketLauncher : NetworkBehaviour
         set;
     }
 
-
     private bool wasRocketLauncherEquipped;
 
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
 
     public bool IsReloading =>
         IsReloadingNetworked;
-
 
     private void Awake()
     {
@@ -87,7 +87,6 @@ public class PRocketLauncher : NetworkBehaviour
         }
     }
 
-
     public override void Spawned()
     {
         if (weaponInventory == null)
@@ -101,7 +100,6 @@ public class PRocketLauncher : NetworkBehaviour
             health =
                 GetComponent<PHealth>();
         }
-
 
         if (playerCamera == null &&
             Object.HasInputAuthority)
@@ -117,9 +115,13 @@ public class PRocketLauncher : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         wasRocketLauncherEquipped =
             false;
-
 
         if (Object.HasStateAuthority)
         {
@@ -139,11 +141,11 @@ public class PRocketLauncher : NetworkBehaviour
                 $"ROCKET LAUNCHER READY | " +
                 $"PLAYER: {Object.InputAuthority.PlayerId} | " +
                 $"STATE: {Object.HasStateAuthority} | " +
-                $"INPUT: {Object.HasInputAuthority}"
+                $"INPUT: {Object.HasInputAuthority} | " +
+                $"SCENE: {SceneManager.GetActiveScene().name}"
             );
         }
     }
-
 
     private void Update()
     {
@@ -153,10 +155,8 @@ public class PRocketLauncher : NetworkBehaviour
         if (!Object.IsValid)
             return;
 
-
         if (!Object.HasInputAuthority)
             return;
-
 
         if (health == null)
         {
@@ -170,21 +170,10 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -199,7 +188,6 @@ public class PRocketLauncher : NetworkBehaviour
             weaponInventory
                 .IsRocketLauncherEquipped();
 
-
         if (rocketEquipped &&
             !wasRocketLauncherEquipped)
         {
@@ -212,10 +200,8 @@ public class PRocketLauncher : NetworkBehaviour
         if (!rocketEquipped)
             return;
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (Input.GetKeyDown(
             KeyCode.R))
@@ -225,7 +211,6 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
         if (Input.GetMouseButtonDown(
             0))
         {
@@ -233,12 +218,10 @@ public class PRocketLauncher : NetworkBehaviour
         }
     }
 
-
     public override void FixedUpdateNetwork()
     {
         if (!Object.HasStateAuthority)
             return;
-
 
         if (IsReloadingNetworked &&
             ReloadTimer.IsRunning &&
@@ -249,6 +232,72 @@ public class PRocketLauncher : NetworkBehaviour
         }
     }
 
+    // ============================
+    // CAN USE WEAPON
+    // ============================
+
+    private bool CanUseWeapon()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        if (!gameManager.CanPlay)
+        {
+            return false;
+        }
+
+        if (gameManager.IsReady &&
+            gameManager.GameOver)
+        {
+            return false;
+        }
+
+        return true;
+    }
 
     private void OnRocketLauncherEquipped()
     {
@@ -264,41 +313,39 @@ public class PRocketLauncher : NetworkBehaviour
         }
     }
 
-
     private void RequestFire()
     {
         if (!Object.HasInputAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
 
         if (playerCamera == null)
         {
             Debug.LogError(
                 "ROCKET LAUNCHER: " +
-                "Player Camera no está asignada."
+                "Player Camera is not assigned."
             );
 
             return;
         }
-
 
         if (!rocketPrefab.IsValid)
         {
             Debug.LogError(
                 "ROCKET LAUNCHER: " +
-                "Rocket Prefab no está asignado."
+                "Rocket Prefab is not assigned."
             );
 
             return;
         }
-
 
         Vector3 forwardDirection =
             playerCamera
                 .transform
                 .forward
                 .normalized;
-
 
         Vector3 spawnPosition;
 
@@ -317,7 +364,6 @@ public class PRocketLauncher : NetworkBehaviour
                 spawnForwardOffset;
         }
 
-
         if (Object.HasStateAuthority)
         {
             ProcessFireAuthoritative(
@@ -328,13 +374,11 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
         RPC_RequestFire(
             spawnPosition,
             forwardDirection
         );
     }
-
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -353,7 +397,6 @@ public class PRocketLauncher : NetworkBehaviour
         );
     }
 
-
     private void ProcessFireAuthoritative(
         Vector3 requestedSpawnPosition,
         Vector3 forwardDirection)
@@ -361,21 +404,10 @@ public class PRocketLauncher : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (health == null)
         {
@@ -388,7 +420,6 @@ public class PRocketLauncher : NetworkBehaviour
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -405,10 +436,8 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (ShotCooldown.IsRunning &&
             !ShotCooldown.Expired(
@@ -417,13 +446,12 @@ public class PRocketLauncher : NetworkBehaviour
             if (showDebug)
             {
                 Debug.Log(
-                    "ROCKET: todavía está en cooldown."
+                    "ROCKET: still on cooldown."
                 );
             }
 
             return;
         }
-
 
         if (weaponInventory
             .RocketLauncherLoaded <= 0)
@@ -431,7 +459,7 @@ public class PRocketLauncher : NetworkBehaviour
             if (showDebug)
             {
                 Debug.Log(
-                    $"ROCKET VACÍO | " +
+                    $"ROCKET EMPTY | " +
                     $"Loaded: " +
                     $"{weaponInventory.RocketLauncherLoaded} | " +
                     $"Reserve: " +
@@ -444,17 +472,15 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
         if (!rocketPrefab.IsValid)
         {
             Debug.LogError(
                 "ROCKET LAUNCHER: " +
-                "Rocket Prefab no está asignado."
+                "Rocket Prefab is not assigned."
             );
 
             return;
         }
-
 
         if (forwardDirection.sqrMagnitude <
             0.001f)
@@ -471,7 +497,6 @@ public class PRocketLauncher : NetworkBehaviour
                 Vector3.up
             );
 
-
         NetworkObject spawnedRocket =
             Runner.Spawn(
                 rocketPrefab,
@@ -484,12 +509,11 @@ public class PRocketLauncher : NetworkBehaviour
         {
             Debug.LogError(
                 "ROCKET: " +
-                "Runner.Spawn devolvió NULL."
+                "Runner.Spawn returned NULL."
             );
 
             return;
         }
-
 
         RocketProjectile projectile =
             spawnedRocket
@@ -501,7 +525,7 @@ public class PRocketLauncher : NetworkBehaviour
         {
             Debug.LogError(
                 "ROCKET: " +
-                "El prefab no tiene " +
+                "Prefab does not contain " +
                 "RocketProjectile."
             );
 
@@ -516,10 +540,8 @@ public class PRocketLauncher : NetworkBehaviour
             Object
         );
 
-
         weaponInventory
             .RocketLauncherLoaded--;
-
 
         ShotCooldown =
             TickTimer.CreateFromSeconds(
@@ -542,7 +564,6 @@ public class PRocketLauncher : NetworkBehaviour
             );
         }
 
-
         if (weaponInventory
                 .RocketLauncherLoaded <= 0 &&
             weaponInventory
@@ -552,12 +573,13 @@ public class PRocketLauncher : NetworkBehaviour
         }
     }
 
-
     private void RequestReload()
     {
         if (!Object.HasInputAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
 
         if (Object.HasStateAuthority)
         {
@@ -566,10 +588,8 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
         RPC_RequestReload();
     }
-
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -580,13 +600,18 @@ public class PRocketLauncher : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         StartReloadAuthoritative();
     }
-
 
     private void StartReloadAuthoritative()
     {
         if (!Object.HasStateAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (weaponInventory == null)
@@ -601,7 +626,6 @@ public class PRocketLauncher : NetworkBehaviour
         if (IsReloadingNetworked)
             return;
 
-
         if (weaponInventory
                 .RocketLauncherLoaded >=
             weaponInventory
@@ -610,7 +634,6 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
         if (weaponInventory
             .RocketLauncherReserve <= 0)
         {
@@ -618,13 +641,12 @@ public class PRocketLauncher : NetworkBehaviour
             {
                 Debug.Log(
                     "ROCKET: " +
-                    "sin munición de reserva."
+                    "NO RESERVE AMMO."
                 );
             }
 
             return;
         }
-
 
         IsReloadingNetworked =
             true;
@@ -648,7 +670,6 @@ public class PRocketLauncher : NetworkBehaviour
             );
         }
     }
-
 
     private void CompleteReloadAuthoritative()
     {
@@ -675,13 +696,11 @@ public class PRocketLauncher : NetworkBehaviour
             return;
         }
 
-
         int rocketsNeeded =
             weaponInventory
                 .RocketLauncherMagazineSize -
             weaponInventory
                 .RocketLauncherLoaded;
-
 
         int rocketsToLoad =
             Mathf.Min(
@@ -689,7 +708,6 @@ public class PRocketLauncher : NetworkBehaviour
                 weaponInventory
                     .RocketLauncherReserve
             );
-
 
         weaponInventory
             .RocketLauncherLoaded +=

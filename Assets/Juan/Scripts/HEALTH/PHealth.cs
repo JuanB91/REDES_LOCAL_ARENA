@@ -1,23 +1,47 @@
 using System.Collections;
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PHealth : NetworkBehaviour
 {
-   
+    // ============================
+    // HEALTH
+    // ============================
+
     [Header("Health")]
     [SerializeField]
     private int maxHealth = 100;
+
+    // ============================
+    // RESPAWN
+    // ============================
 
     [Header("Respawn")]
     [SerializeField]
     private float respawnDelay = 3f;
 
+    // ============================
+    // GAME SCENES
+    // ============================
+
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // VISUAL
+    // ============================
+
     [Header("Visual")]
     [SerializeField]
     private GameObject bodyObject;
 
-    
+    // ============================
+    // NETWORK STATE
+    // ============================
+
     [Networked]
     public int Health { get; set; }
 
@@ -25,12 +49,24 @@ public class PHealth : NetworkBehaviour
     public int Kills { get; set; }
 
     [Networked]
+    public int Deaths { get; set; }
+
+    [Networked]
     public NetworkBool IsDead { get; set; }
 
-    
+    // ============================
+    // REFERENCES
+    // ============================
+
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
+
     private TeamSpawnManager teamSpawnManager;
+
+    private DeathmatchSpawnManager
+        deathmatchSpawnManager;
 
     private PTeam team;
 
@@ -40,13 +76,18 @@ public class PHealth : NetworkBehaviour
 
     private PShooting pistolShooting;
 
-    
     private Renderer[] bodyRenderers;
 
- 
+    // ============================
+    // PUBLIC PROPERTIES
+    // ============================
+
     public int MaxHealth =>
         maxHealth;
 
+    // ============================
+    // SPAWNED
+    // ============================
 
     public override void Spawned()
     {
@@ -62,6 +103,9 @@ public class PHealth : NetworkBehaviour
             Kills =
                 0;
 
+            Deaths =
+                0;
+
             IsDead =
                 false;
         }
@@ -73,11 +117,30 @@ public class PHealth : NetworkBehaviour
             $"PLAYER: {Object.InputAuthority.PlayerId} | " +
             $"STATE AUTHORITY: {Object.HasStateAuthority} | " +
             $"INPUT AUTHORITY: {Object.HasInputAuthority} | " +
+            $"SCENE: {SceneManager.GetActiveScene().name} | " +
             $"HEALTH: {Health} | " +
+            $"KILLS: {Kills} | " +
+            $"DEATHS: {Deaths} | " +
             $"DEAD: {IsDead}"
         );
     }
 
+    // ============================
+    // IS DEATHMATCH
+    // ============================
+
+    private bool IsDeathmatch()
+    {
+        return
+            SceneManager
+                .GetActiveScene()
+                .name ==
+            deathmatchSceneName;
+    }
+
+    // ============================
+    // CACHE REFERENCES
+    // ============================
 
     private void CacheReferences()
     {
@@ -89,11 +152,27 @@ public class PHealth : NetworkBehaviour
                 >();
         }
 
+        if (deathmatchGameManager == null)
+        {
+            deathmatchGameManager =
+                FindFirstObjectByType<
+                    DeathmatchGameManager
+                >();
+        }
+
         if (teamSpawnManager == null)
         {
             teamSpawnManager =
                 FindFirstObjectByType<
                     TeamSpawnManager
+                >();
+        }
+
+        if (deathmatchSpawnManager == null)
+        {
+            deathmatchSpawnManager =
+                FindFirstObjectByType<
+                    DeathmatchSpawnManager
                 >();
         }
 
@@ -122,6 +201,9 @@ public class PHealth : NetworkBehaviour
         }
     }
 
+    // ============================
+    // CACHE BODY RENDERERS
+    // ============================
 
     private void CacheBodyRenderers()
     {
@@ -142,6 +224,9 @@ public class PHealth : NetworkBehaviour
                 );
     }
 
+    // ============================
+    // TAKE DAMAGE RPC
+    // ============================
 
     [Rpc(
         RpcSources.All,
@@ -159,8 +244,14 @@ public class PHealth : NetworkBehaviour
             $"Victim: {Object.InputAuthority.PlayerId} | " +
             $"Damage: {damage} | " +
             $"Health before: {Health} | " +
-            $"IsDead: {IsDead}"
+            $"IsDead: {IsDead} | " +
+            $"Mode: " +
+            $"{(IsDeathmatch() ? "DEATHMATCH" : "TEAM VS TEAM")}"
         );
+
+        // ============================
+        // DEAD PLAYER
+        // ============================
 
         if (IsDead)
         {
@@ -178,39 +269,97 @@ public class PHealth : NetworkBehaviour
 
         CacheReferences();
 
+        // ============================
+        // DEATHMATCH DAMAGE CHECK
+        // ============================
 
-        if (attacker != null &&
-            attacker != Object)
+        if (IsDeathmatch())
         {
-            PTeam attackerTeam =
-                attacker.GetComponent<PTeam>();
-
-            if (attackerTeam != null &&
-                team != null &&
-                gameManager != null)
+            if (deathmatchGameManager == null)
             {
-                bool sameTeam =
-                    attackerTeam.CurrentTeam ==
-                    team.CurrentTeam;
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
 
-                if (sameTeam &&
-                    !gameManager
-                        .FriendlyFireEnabled)
+            // If the manager is not ready yet,
+            // damage stays disabled for safety.
+            if (deathmatchGameManager == null)
+            {
+                Debug.LogWarning(
+                    $"DAMAGE IGNORED - " +
+                    $"DEATHMATCH MANAGER NOT FOUND | " +
+                    $"Victim: " +
+                    $"{Object.InputAuthority.PlayerId}"
+                );
+
+                return;
+            }
+
+            if (!deathmatchGameManager
+                .DamageEnabled)
+            {
+                string reason =
+                    deathmatchGameManager
+                        .WarmupActive
+                    ? "WARMUP"
+                    : "MATCH NOT ACTIVE";
+
+                Debug.Log(
+                    $"DAMAGE IGNORED - " +
+                    $"DEATHMATCH DAMAGE DISABLED | " +
+                    $"Victim: " +
+                    $"{Object.InputAuthority.PlayerId} | " +
+                    $"Reason: {reason}"
+                );
+
+                return;
+            }
+        }
+
+        // ============================
+        // TEAM VS TEAM FRIENDLY FIRE
+        // ============================
+
+        if (!IsDeathmatch())
+        {
+            if (attacker != null &&
+                attacker != Object)
+            {
+                PTeam attackerTeam =
+                    attacker.GetComponent<PTeam>();
+
+                if (attackerTeam != null &&
+                    team != null &&
+                    gameManager != null)
                 {
-                    Debug.Log(
-                        $"FRIENDLY FIRE BLOCKED | " +
-                        $"Attacker: " +
-                        $"{attacker.InputAuthority.PlayerId} | " +
-                        $"Victim: " +
-                        $"{Object.InputAuthority.PlayerId} | " +
-                        $"Team: {team.CurrentTeam}"
-                    );
+                    bool sameTeam =
+                        attackerTeam.CurrentTeam ==
+                        team.CurrentTeam;
 
-                    return;
+                    if (sameTeam &&
+                        !gameManager
+                            .FriendlyFireEnabled)
+                    {
+                        Debug.Log(
+                            $"FRIENDLY FIRE BLOCKED | " +
+                            $"Attacker: " +
+                            $"{attacker.InputAuthority.PlayerId} | " +
+                            $"Victim: " +
+                            $"{Object.InputAuthority.PlayerId} | " +
+                            $"Team: {team.CurrentTeam}"
+                        );
+
+                        return;
+                    }
                 }
             }
         }
 
+        // ============================
+        // DAMAGE
+        // ============================
 
         Health -=
             damage;
@@ -237,6 +386,9 @@ public class PHealth : NetworkBehaviour
         }
     }
 
+    // ============================
+    // DIE
+    // ============================
 
     private void Die(
         NetworkObject attacker)
@@ -253,11 +405,19 @@ public class PHealth : NetworkBehaviour
         Health =
             0;
 
+        Deaths++;
+
         Debug.Log(
             $"PLAYER " +
-            $"{Object.InputAuthority.PlayerId} DIED"
+            $"{Object.InputAuthority.PlayerId} DIED | " +
+            $"DEATHS: {Deaths} | " +
+            $"MODE: " +
+            $"{(IsDeathmatch() ? "DEATHMATCH" : "TEAM VS TEAM")}"
         );
 
+        // ============================
+        // KILL CREDIT
+        // ============================
 
         if (attacker != null &&
             attacker != Object)
@@ -272,18 +432,19 @@ public class PHealth : NetworkBehaviour
             }
         }
 
-
         UpdateBodyState();
 
-
+        // Move player immediately while invisible.
         MoveDeadPlayerToSpawn();
-
 
         StartCoroutine(
             RespawnCoroutine()
         );
     }
 
+    // ============================
+    // ADD KILL
+    // ============================
 
     private void AddKillAuthoritative()
     {
@@ -295,25 +456,40 @@ public class PHealth : NetworkBehaviour
         Debug.Log(
             $"PLAYER " +
             $"{Object.InputAuthority.PlayerId} KILL | " +
-            $"TOTAL: {Kills}"
+            $"TOTAL: {Kills} | " +
+            $"MODE: " +
+            $"{(IsDeathmatch() ? "DEATHMATCH" : "TEAM VS TEAM")}"
         );
 
-        if (gameManager == null)
+        // ============================
+        // TEAM VS TEAM VICTORY CHECK
+        // ============================
+
+        if (!IsDeathmatch())
         {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
+            if (gameManager == null)
+            {
+                gameManager =
+                    FindFirstObjectByType<
+                        NetworkGameManager
+                    >();
+            }
+
+            if (gameManager != null)
+            {
+                gameManager.CheckVictory(
+                    this
+                );
+            }
         }
 
-        if (gameManager != null)
-        {
-            gameManager.CheckVictory(
-                this
-            );
-        }
+        // Deathmatch victory is handled
+        // by DeathmatchGameManager.
     }
 
+    // ============================
+    // MOVE DEAD PLAYER TO SPAWN
+    // ============================
 
     private void MoveDeadPlayerToSpawn()
     {
@@ -322,6 +498,30 @@ public class PHealth : NetworkBehaviour
 
         CacheReferences();
 
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (IsDeathmatch())
+        {
+            MoveDeadPlayerToDeathmatchSpawn();
+
+            return;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        MoveDeadPlayerToTeamSpawn();
+    }
+
+    // ============================
+    // TEAM RESPAWN
+    // ============================
+
+    private void MoveDeadPlayerToTeamSpawn()
+    {
         if (teamSpawnManager == null)
         {
             Debug.LogError(
@@ -350,7 +550,7 @@ public class PHealth : NetworkBehaviour
         if (spawnPoint == null)
         {
             Debug.LogError(
-                $"PHEALTH: No respawn found | " +
+                $"PHEALTH: No team respawn found | " +
                 $"Player: " +
                 $"{Object.InputAuthority.PlayerId} | " +
                 $"Team: {team.CurrentTeam}"
@@ -360,18 +560,74 @@ public class PHealth : NetworkBehaviour
         }
 
         MoveToSpawn(
-            spawnPoint
+            spawnPoint,
+            teamSpawnManager.LookTarget
         );
 
         Debug.Log(
             $"PLAYER " +
             $"{Object.InputAuthority.PlayerId} " +
-            $"MOVED TO RESPAWN WHILE DEAD | " +
+            $"MOVED TO TEAM RESPAWN WHILE DEAD | " +
             $"TEAM: {team.CurrentTeam} | " +
             $"SPAWN: {spawnPoint.name}"
         );
     }
 
+    // ============================
+    // DEATHMATCH RESPAWN
+    // ============================
+
+    private void MoveDeadPlayerToDeathmatchSpawn()
+    {
+        if (deathmatchSpawnManager == null)
+        {
+            deathmatchSpawnManager =
+                FindFirstObjectByType<
+                    DeathmatchSpawnManager
+                >();
+        }
+
+        if (deathmatchSpawnManager == null)
+        {
+            Debug.LogError(
+                "PHEALTH: " +
+                "DeathmatchSpawnManager not found."
+            );
+
+            return;
+        }
+
+        Transform spawnPoint =
+            deathmatchSpawnManager
+                .GetRandomSpawnPoint();
+
+        if (spawnPoint == null)
+        {
+            Debug.LogError(
+                $"PHEALTH: No deathmatch respawn found | " +
+                $"Player: " +
+                $"{Object.InputAuthority.PlayerId}"
+            );
+
+            return;
+        }
+
+        MoveToSpawn(
+            spawnPoint,
+            deathmatchSpawnManager.LookTarget
+        );
+
+        Debug.Log(
+            $"PLAYER " +
+            $"{Object.InputAuthority.PlayerId} " +
+            $"MOVED TO DEATHMATCH RESPAWN WHILE DEAD | " +
+            $"SPAWN: {spawnPoint.name}"
+        );
+    }
+
+    // ============================
+    // RESPAWN COROUTINE
+    // ============================
 
     private IEnumerator RespawnCoroutine()
     {
@@ -389,7 +645,6 @@ public class PHealth : NetworkBehaviour
         if (!Object.HasStateAuthority)
             yield break;
 
-
         Health =
             maxHealth;
 
@@ -402,13 +657,21 @@ public class PHealth : NetworkBehaviour
             $"PLAYER " +
             $"{Object.InputAuthority.PlayerId} RESPAWNED | " +
             $"Health: {Health}/{maxHealth} | " +
-            $"IsDead: {IsDead}"
+            $"Kills: {Kills} | " +
+            $"Deaths: {Deaths} | " +
+            $"IsDead: {IsDead} | " +
+            $"Mode: " +
+            $"{(IsDeathmatch() ? "DEATHMATCH" : "TEAM VS TEAM")}"
         );
     }
 
+    // ============================
+    // MOVE TO SPAWN
+    // ============================
 
     private void MoveToSpawn(
-        Transform spawnPoint)
+        Transform spawnPoint,
+        Transform lookTarget)
     {
         if (!Object.HasStateAuthority)
             return;
@@ -429,16 +692,17 @@ public class PHealth : NetworkBehaviour
                 false;
         }
 
+        // ============================
+        // ROTATION
+        // ============================
+
         Quaternion rotation =
             spawnPoint.rotation;
 
-        if (teamSpawnManager != null &&
-            teamSpawnManager.LookTarget != null)
+        if (lookTarget != null)
         {
             Vector3 direction =
-                teamSpawnManager
-                    .LookTarget
-                    .position -
+                lookTarget.position -
                 spawnPoint.position;
 
             direction.y =
@@ -455,12 +719,18 @@ public class PHealth : NetworkBehaviour
             }
         }
 
+        // ============================
+        // TRANSFORM
+        // ============================
 
         transform.SetPositionAndRotation(
             spawnPoint.position,
             rotation
         );
 
+        // ============================
+        // NETWORK TRANSFORM
+        // ============================
 
         if (networkTransform == null)
         {
@@ -476,13 +746,15 @@ public class PHealth : NetworkBehaviour
             );
         }
 
-
         if (controllerWasEnabled)
         {
             controller.enabled =
                 true;
         }
 
+        // ============================
+        // LOOK SYNC
+        // ============================
 
         PLook look =
             GetComponent<PLook>();
@@ -494,6 +766,9 @@ public class PHealth : NetworkBehaviour
         }
     }
 
+    // ============================
+    // UPDATE BODY STATE
+    // ============================
 
     private void UpdateBodyState()
     {
@@ -530,12 +805,18 @@ public class PHealth : NetworkBehaviour
         }
     }
 
+    // ============================
+    // RENDER
+    // ============================
 
     public override void Render()
     {
         UpdateBodyState();
     }
 
+    // ============================
+    // RESET PLAYER RPC
+    // ============================
 
     [Rpc(
         RpcSources.All,
@@ -550,11 +831,13 @@ public class PHealth : NetworkBehaviour
 
         CacheReferences();
 
-
         Health =
             maxHealth;
 
         Kills =
+            0;
+
+        Deaths =
             0;
 
         IsDead =
@@ -562,6 +845,9 @@ public class PHealth : NetworkBehaviour
 
         UpdateBodyState();
 
+        // ============================
+        // RESET INVENTORY
+        // ============================
 
         if (weaponInventory != null)
         {
@@ -569,6 +855,9 @@ public class PHealth : NetworkBehaviour
                 .ResetInventory();
         }
 
+        // ============================
+        // RESET PISTOL
+        // ============================
 
         if (pistolShooting != null)
         {
@@ -576,24 +865,18 @@ public class PHealth : NetworkBehaviour
                 .ResetPistolAmmo();
         }
 
+        // ============================
+        // RESET POSITION
+        // ============================
 
-        if (teamSpawnManager != null &&
-            team != null)
+        if (IsDeathmatch())
         {
-            Transform spawnPoint =
-                teamSpawnManager
-                    .GetRandomSpawnPoint(
-                        team.CurrentTeam
-                    );
-
-            if (spawnPoint != null)
-            {
-                MoveToSpawn(
-                    spawnPoint
-                );
-            }
+            MoveDeadPlayerToDeathmatchSpawn();
         }
-
+        else
+        {
+            MoveDeadPlayerToTeamSpawn();
+        }
 
         Health =
             maxHealth;
@@ -607,7 +890,11 @@ public class PHealth : NetworkBehaviour
             $"PLAYER " +
             $"{Object.InputAuthority.PlayerId} RESET | " +
             $"Health: {Health} | " +
-            $"IsDead: {IsDead}"
+            $"Kills: {Kills} | " +
+            $"Deaths: {Deaths} | " +
+            $"IsDead: {IsDead} | " +
+            $"Mode: " +
+            $"{(IsDeathmatch() ? "DEATHMATCH" : "TEAM VS TEAM")}"
         );
     }
 }

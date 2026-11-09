@@ -1,25 +1,44 @@
 using System.Collections;
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PShooting : NetworkBehaviour
 {
-    
-    [Header("Referencias")]
+    // ============================
+    // REFERENCES
+    // ============================
+
+    [Header("References")]
     [SerializeField]
     private Camera playerCamera;
 
     [SerializeField]
     private Transform firePoint;
 
+    // ============================
+    // GAME SCENES
+    // ============================
 
-    [Header("Arma")]
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // WEAPON
+    // ============================
+
+    [Header("Weapon")]
     [SerializeField]
     private string weaponName =
         "PISTOL";
 
+    // ============================
+    // SHOOTING
+    // ============================
 
-    [Header("Disparo")]
+    [Header("Shooting")]
     [SerializeField]
     private float range =
         100f;
@@ -28,8 +47,11 @@ public class PShooting : NetworkBehaviour
     private int damage =
         25;
 
+    // ============================
+    // AMMO
+    // ============================
 
-    [Header("Munición")]
+    [Header("Ammo")]
     [SerializeField]
     private int magazineSize =
         6;
@@ -38,12 +60,18 @@ public class PShooting : NetworkBehaviour
     private float reloadTime =
         2f;
 
+    // ============================
+    // SPREAD
+    // ============================
 
-    [Header("Dispersión")]
+    [Header("Spread")]
     [SerializeField]
     private float spread =
         0.03f;
 
+    // ============================
+    // TRACER
+    // ============================
 
     [Header("Tracer")]
     [SerializeField]
@@ -58,8 +86,11 @@ public class PShooting : NetworkBehaviour
     private float tracerWidth =
         0.06f;
 
+    // ============================
+    // TRACER VISUAL ORIGIN
+    // ============================
 
-    [Header("Origen visual del tracer")]
+    [Header("Tracer Visual Origin")]
     [SerializeField]
     private float tracerForwardOffset =
         0.5f;
@@ -68,11 +99,17 @@ public class PShooting : NetworkBehaviour
     private float tracerDownOffset =
         0.15f;
 
+    // ============================
+    // MUZZLE FLASH
+    // ============================
 
-    [Header("Efecto de disparo")]
+    [Header("Shoot Effect")]
     [SerializeField]
     private ParticleSystem muzzleFlash;
 
+    // ============================
+    // NETWORK STATE
+    // ============================
 
     [Networked]
     private int CurrentAmmoNetworked
@@ -88,6 +125,9 @@ public class PShooting : NetworkBehaviour
         set;
     }
 
+    // ============================
+    // REFERENCES
+    // ============================
 
     private PWeaponInventory weaponInventory;
 
@@ -95,6 +135,12 @@ public class PShooting : NetworkBehaviour
 
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
+
+    // ============================
+    // PUBLIC PROPERTIES
+    // ============================
 
     public string WeaponName =>
         weaponName;
@@ -108,6 +154,9 @@ public class PShooting : NetworkBehaviour
     public bool IsReloading =>
         IsReloadingNetworked;
 
+    // ============================
+    // AWAKE
+    // ============================
 
     private void Awake()
     {
@@ -118,6 +167,9 @@ public class PShooting : NetworkBehaviour
             GetComponent<PHealth>();
     }
 
+    // ============================
+    // SPAWNED
+    // ============================
 
     public override void Spawned()
     {
@@ -138,6 +190,11 @@ public class PShooting : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         if (Object.HasStateAuthority)
         {
             CurrentAmmoNetworked =
@@ -152,10 +209,14 @@ public class PShooting : NetworkBehaviour
             $"PLAYER: " +
             $"{Object.InputAuthority.PlayerId} | " +
             $"STATE: {Object.HasStateAuthority} | " +
-            $"INPUT: {Object.HasInputAuthority}"
+            $"INPUT: {Object.HasInputAuthority} | " +
+            $"SCENE: {SceneManager.GetActiveScene().name}"
         );
     }
 
+    // ============================
+    // UPDATE
+    // ============================
 
     private void Update()
     {
@@ -165,10 +226,12 @@ public class PShooting : NetworkBehaviour
         if (!Object.IsValid)
             return;
 
-
         if (!Object.HasInputAuthority)
             return;
 
+        // ============================
+        // HEALTH
+        // ============================
 
         if (health == null)
         {
@@ -182,21 +245,18 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // CAN USE WEAPON?
+        // ============================
 
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
 
+        // ============================
+        // WEAPON INVENTORY
+        // ============================
 
         if (weaponInventory == null)
         {
@@ -210,6 +270,9 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // RELOAD
+        // ============================
 
         if (Input.GetKeyDown(
             KeyCode.R))
@@ -220,6 +283,9 @@ public class PShooting : NetworkBehaviour
         if (IsReloadingNetworked)
             return;
 
+        // ============================
+        // SHOOT
+        // ============================
 
         if (Input.GetMouseButtonDown(
             0))
@@ -228,6 +294,76 @@ public class PShooting : NetworkBehaviour
         }
     }
 
+    // ============================
+    // CAN USE WEAPON
+    // ============================
+
+    private bool CanUseWeapon()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        if (!gameManager.CanPlay)
+        {
+            return false;
+        }
+
+        if (gameManager.IsReady &&
+            gameManager.GameOver)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ============================
+    // REQUEST SHOOT
+    // ============================
 
     private void RequestShoot()
     {
@@ -238,7 +374,7 @@ public class PShooting : NetworkBehaviour
         {
             Debug.LogError(
                 "PShooting: " +
-                "Player Camera no está asignada."
+                "Player Camera is not assigned."
             );
 
             return;
@@ -248,19 +384,17 @@ public class PShooting : NetworkBehaviour
         {
             Debug.LogError(
                 "PShooting: " +
-                "Fire Point no está asignado."
+                "Fire Point is not assigned."
             );
 
             return;
         }
 
-       
         Vector3 shotDirection =
             playerCamera
                 .transform
                 .forward;
 
-    
         float randomHorizontal =
             Random.Range(
                 -spread,
@@ -290,7 +424,6 @@ public class PShooting : NetworkBehaviour
         Vector3 shotOrigin =
             firePoint.position;
 
-
         if (Object.HasStateAuthority)
         {
             ProcessShootAuthoritative(
@@ -307,6 +440,9 @@ public class PShooting : NetworkBehaviour
         );
     }
 
+    // ============================
+    // SHOOT RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -325,6 +461,9 @@ public class PShooting : NetworkBehaviour
         );
     }
 
+    // ============================
+    // AUTHORITATIVE SHOOT
+    // ============================
 
     private void ProcessShootAuthoritative(
         Vector3 shotOrigin,
@@ -333,21 +472,18 @@ public class PShooting : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        // ============================
+        // CAN USE WEAPON?
+        // ============================
 
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
 
+        // ============================
+        // HEALTH
+        // ============================
 
         if (health == null)
         {
@@ -361,6 +497,9 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // WEAPON INVENTORY
+        // ============================
 
         if (weaponInventory == null)
         {
@@ -374,10 +513,16 @@ public class PShooting : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // RELOAD CHECK
+        // ============================
 
         if (IsReloadingNetworked)
             return;
 
+        // ============================
+        // AMMO CHECK
+        // ============================
 
         if (CurrentAmmoNetworked <= 0)
         {
@@ -388,6 +533,9 @@ public class PShooting : NetworkBehaviour
 
         CurrentAmmoNetworked--;
 
+        // ============================
+        // RAYCAST
+        // ============================
 
         Ray ray =
             new Ray(
@@ -411,7 +559,6 @@ public class PShooting : NetworkBehaviour
                 $"{Object.InputAuthority.PlayerId} | " +
                 $"Target: {hit.collider.name}"
             );
-
 
             PHealth targetHealth =
                 hit.collider
@@ -442,6 +589,9 @@ public class PShooting : NetworkBehaviour
             );
         }
 
+        // ============================
+        // EFFECTS
+        // ============================
 
         RPC_PlayShotEffects(
             shotOrigin,
@@ -449,14 +599,17 @@ public class PShooting : NetworkBehaviour
         );
 
         Debug.Log(
-            $"DISPARO | " +
+            $"SHOT | " +
             $"Player: " +
             $"{Object.InputAuthority.PlayerId} | " +
-            $"Balas: " +
+            $"Ammo: " +
             $"{CurrentAmmoNetworked}/" +
             $"{magazineSize}"
         );
 
+        // ============================
+        // AUTO RELOAD
+        // ============================
 
         if (CurrentAmmoNetworked <= 0)
         {
@@ -464,6 +617,9 @@ public class PShooting : NetworkBehaviour
         }
     }
 
+    // ============================
+    // SHOT EFFECTS RPC
+    // ============================
 
     [Rpc(
         RpcSources.StateAuthority,
@@ -486,10 +642,16 @@ public class PShooting : NetworkBehaviour
         );
     }
 
+    // ============================
+    // REQUEST RELOAD
+    // ============================
 
     private void RequestReload()
     {
         if (!Object.HasInputAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (Object.HasStateAuthority)
@@ -502,6 +664,9 @@ public class PShooting : NetworkBehaviour
         RPC_RequestReload();
     }
 
+    // ============================
+    // RELOAD RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -512,13 +677,22 @@ public class PShooting : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         StartReloadAuthoritative();
     }
 
+    // ============================
+    // START RELOAD
+    // ============================
 
     private void StartReloadAuthoritative()
     {
         if (!Object.HasStateAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (IsReloadingNetworked)
@@ -535,6 +709,9 @@ public class PShooting : NetworkBehaviour
         );
     }
 
+    // ============================
+    // RELOAD ROUTINE
+    // ============================
 
     private IEnumerator ReloadRoutine()
     {
@@ -548,10 +725,10 @@ public class PShooting : NetworkBehaviour
             true;
 
         Debug.Log(
-            $"RECARGANDO... | " +
+            $"RELOADING... | " +
             $"Player: " +
             $"{Object.InputAuthority.PlayerId} | " +
-            $"Balas actuales: " +
+            $"Current Ammo: " +
             $"{CurrentAmmoNetworked}/" +
             $"{magazineSize}"
         );
@@ -577,15 +754,18 @@ public class PShooting : NetworkBehaviour
             false;
 
         Debug.Log(
-            $"RECARGA COMPLETA | " +
+            $"RELOAD COMPLETE | " +
             $"Player: " +
             $"{Object.InputAuthority.PlayerId} | " +
-            $"Balas: " +
+            $"Ammo: " +
             $"{CurrentAmmoNetworked}/" +
             $"{magazineSize}"
         );
     }
 
+    // ============================
+    // TRACER
+    // ============================
 
     private IEnumerator ShowTracer(
         Vector3 start,
@@ -660,6 +840,9 @@ public class PShooting : NetworkBehaviour
         }
     }
 
+    // ============================
+    // RESET PISTOL AMMO
+    // ============================
 
     public void ResetPistolAmmo()
     {
@@ -684,7 +867,7 @@ public class PShooting : NetworkBehaviour
             $"PLAYER " +
             $"{Object.InputAuthority.PlayerId} " +
             $"PISTOL RESET | " +
-            $"Balas: " +
+            $"Ammo: " +
             $"{CurrentAmmoNetworked}/" +
             $"{magazineSize}"
         );

@@ -1,10 +1,14 @@
 using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PGrenade : NetworkBehaviour
 {
+    // ============================
+    // REFERENCES
+    // ============================
 
-    [Header("Referencias")]
+    [Header("References")]
     [SerializeField]
     private Camera playerCamera;
 
@@ -14,38 +18,68 @@ public class PGrenade : NetworkBehaviour
     [SerializeField]
     private PHealth health;
 
+    // ============================
+    // GAME SCENES
+    // ============================
 
-    [Header("Proyectil")]
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // PROJECTILE
+    // ============================
+
+    [Header("Projectile")]
     [SerializeField]
     private NetworkPrefabRef grenadePrefab;
 
     [SerializeField]
     private Transform grenadeSpawnPoint;
 
+    // ============================
+    // THROW
+    // ============================
 
-    [Header("Lanzamiento")]
+    [Header("Throw")]
     [SerializeField]
-    private float throwForce = 15f;
-
-    [SerializeField]
-    private float upwardForce = 4f;
-
-    [SerializeField]
-    private float timeBetweenThrows = 0.8f;
+    private float throwForce =
+        15f;
 
     [SerializeField]
-    private float spawnForwardOffset = 1f;
+    private float upwardForce =
+        4f;
 
-
-    [Header("Recarga")]
     [SerializeField]
-    private float reloadTime = 1f;
+    private float timeBetweenThrows =
+        0.8f;
 
+    [SerializeField]
+    private float spawnForwardOffset =
+        1f;
+
+    // ============================
+    // RELOAD
+    // ============================
+
+    [Header("Reload")]
+    [SerializeField]
+    private float reloadTime =
+        1f;
+
+    // ============================
+    // DEBUG
+    // ============================
 
     [Header("Debug")]
     [SerializeField]
-    private bool showDebug = true;
+    private bool showDebug =
+        true;
 
+    // ============================
+    // NETWORK STATE
+    // ============================
 
     [Networked]
     private NetworkBool IsReloadingNetworked
@@ -68,15 +102,31 @@ public class PGrenade : NetworkBehaviour
         set;
     }
 
+    // ============================
+    // RUNTIME
+    // ============================
 
     private bool wasGrenadeEquipped;
 
+    // ============================
+    // MANAGERS
+    // ============================
+
     private NetworkGameManager gameManager;
 
+    private DeathmatchGameManager
+        deathmatchGameManager;
+
+    // ============================
+    // PUBLIC
+    // ============================
 
     public bool IsReloading =>
         IsReloadingNetworked;
 
+    // ============================
+    // AWAKE
+    // ============================
 
     private void Awake()
     {
@@ -93,6 +143,9 @@ public class PGrenade : NetworkBehaviour
         }
     }
 
+    // ============================
+    // SPAWNED
+    // ============================
 
     public override void Spawned()
     {
@@ -108,7 +161,6 @@ public class PGrenade : NetworkBehaviour
                 GetComponent<PHealth>();
         }
 
-
         if (playerCamera == null &&
             Object.HasInputAuthority)
         {
@@ -123,9 +175,13 @@ public class PGrenade : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         wasGrenadeEquipped =
             false;
-
 
         if (Object.HasStateAuthority)
         {
@@ -148,11 +204,16 @@ public class PGrenade : NetworkBehaviour
                 $"STATE: " +
                 $"{Object.HasStateAuthority} | " +
                 $"INPUT: " +
-                $"{Object.HasInputAuthority}"
+                $"{Object.HasInputAuthority} | " +
+                $"SCENE: " +
+                $"{SceneManager.GetActiveScene().name}"
             );
         }
     }
 
+    // ============================
+    // UPDATE
+    // ============================
 
     private void Update()
     {
@@ -162,10 +223,8 @@ public class PGrenade : NetworkBehaviour
         if (!Object.IsValid)
             return;
 
-
         if (!Object.HasInputAuthority)
             return;
-
 
         if (health == null)
         {
@@ -179,21 +238,10 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -208,7 +256,6 @@ public class PGrenade : NetworkBehaviour
             weaponInventory
                 .IsGrenadeEquipped();
 
-
         if (grenadeEquipped &&
             !wasGrenadeEquipped)
         {
@@ -221,10 +268,8 @@ public class PGrenade : NetworkBehaviour
         if (!grenadeEquipped)
             return;
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (Input.GetKeyDown(
             KeyCode.R))
@@ -234,7 +279,6 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
         if (Input.GetMouseButtonDown(
             0))
         {
@@ -242,12 +286,14 @@ public class PGrenade : NetworkBehaviour
         }
     }
 
+    // ============================
+    // FIXED UPDATE NETWORK
+    // ============================
 
     public override void FixedUpdateNetwork()
     {
         if (!Object.HasStateAuthority)
             return;
-
 
         if (IsReloadingNetworked &&
             ReloadTimer.IsRunning &&
@@ -258,6 +304,76 @@ public class PGrenade : NetworkBehaviour
         }
     }
 
+    // ============================
+    // CAN USE WEAPON
+    // ============================
+
+    private bool CanUseWeapon()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        if (!gameManager.CanPlay)
+        {
+            return false;
+        }
+
+        if (gameManager.IsReady &&
+            gameManager.GameOver)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ============================
+    // GRENADE EQUIPPED
+    // ============================
 
     private void OnGrenadeEquipped()
     {
@@ -273,41 +389,43 @@ public class PGrenade : NetworkBehaviour
         }
     }
 
+    // ============================
+    // REQUEST THROW
+    // ============================
 
     private void RequestThrowGrenade()
     {
         if (!Object.HasInputAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
 
         if (playerCamera == null)
         {
             Debug.LogError(
                 "GRENADE: " +
-                "Player Camera no está asignada."
+                "Player Camera is not assigned."
             );
 
             return;
         }
-
 
         if (!grenadePrefab.IsValid)
         {
             Debug.LogError(
                 "GRENADE: " +
-                "Grenade Prefab no está asignado."
+                "Grenade Prefab is not assigned."
             );
 
             return;
         }
-
 
         Vector3 forwardDirection =
             playerCamera
                 .transform
                 .forward
                 .normalized;
-
 
         Vector3 spawnPosition;
 
@@ -326,7 +444,6 @@ public class PGrenade : NetworkBehaviour
                 spawnForwardOffset;
         }
 
-
         if (Object.HasStateAuthority)
         {
             ProcessThrowAuthoritative(
@@ -337,13 +454,15 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
         RPC_RequestThrowGrenade(
             spawnPosition,
             forwardDirection
         );
     }
 
+    // ============================
+    // THROW RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -362,6 +481,9 @@ public class PGrenade : NetworkBehaviour
         );
     }
 
+    // ============================
+    // AUTHORITATIVE THROW
+    // ============================
 
     private void ProcessThrowAuthoritative(
         Vector3 requestedSpawnPosition,
@@ -370,21 +492,10 @@ public class PGrenade : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
-
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanUseWeapon())
         {
             return;
         }
-
 
         if (health == null)
         {
@@ -397,7 +508,6 @@ public class PGrenade : NetworkBehaviour
         {
             return;
         }
-
 
         if (weaponInventory == null)
         {
@@ -414,10 +524,8 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
         if (IsReloadingNetworked)
             return;
-
 
         if (ThrowCooldown.IsRunning &&
             !ThrowCooldown.Expired(
@@ -426,14 +534,12 @@ public class PGrenade : NetworkBehaviour
             if (showDebug)
             {
                 Debug.Log(
-                    "GRENADE: " +
-                    "todavía está en cooldown."
+                    "GRENADE: still on cooldown."
                 );
             }
 
             return;
         }
-
 
         if (weaponInventory
             .GrenadeLoaded <= 0)
@@ -441,7 +547,7 @@ public class PGrenade : NetworkBehaviour
             if (showDebug)
             {
                 Debug.Log(
-                    $"GRENADE VACÍA | " +
+                    $"GRENADE EMPTY | " +
                     $"Loaded: " +
                     $"{weaponInventory.GrenadeLoaded} | " +
                     $"Reserve: " +
@@ -454,17 +560,15 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
         if (!grenadePrefab.IsValid)
         {
             Debug.LogError(
                 "GRENADE: " +
-                "Grenade Prefab no está asignado."
+                "Grenade Prefab is not assigned."
             );
 
             return;
         }
-
 
         if (forwardDirection.sqrMagnitude <
             0.001f)
@@ -474,7 +578,6 @@ public class PGrenade : NetworkBehaviour
         }
 
         forwardDirection.Normalize();
-
 
         Vector3 launchVelocity =
             forwardDirection *
@@ -490,7 +593,6 @@ public class PGrenade : NetworkBehaviour
                 Vector3.up
             );
 
-
         NetworkObject spawnedGrenade =
             Runner.Spawn(
                 grenadePrefab,
@@ -503,12 +605,11 @@ public class PGrenade : NetworkBehaviour
         {
             Debug.LogError(
                 "GRENADE: " +
-                "Runner.Spawn devolvió NULL."
+                "Runner.Spawn returned NULL."
             );
 
             return;
         }
-
 
         GrenadeProjectile grenade =
             spawnedGrenade
@@ -520,7 +621,7 @@ public class PGrenade : NetworkBehaviour
         {
             Debug.LogError(
                 "GRENADE: " +
-                "El prefab no tiene " +
+                "Prefab does not contain " +
                 "GrenadeProjectile."
             );
 
@@ -536,10 +637,8 @@ public class PGrenade : NetworkBehaviour
             launchVelocity
         );
 
-
         weaponInventory
             .GrenadeLoaded--;
-
 
         ThrowCooldown =
             TickTimer.CreateFromSeconds(
@@ -564,7 +663,6 @@ public class PGrenade : NetworkBehaviour
             );
         }
 
-
         if (weaponInventory
                 .GrenadeLoaded <= 0 &&
             weaponInventory
@@ -574,12 +672,17 @@ public class PGrenade : NetworkBehaviour
         }
     }
 
+    // ============================
+    // REQUEST RELOAD
+    // ============================
 
     private void RequestReload()
     {
         if (!Object.HasInputAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
 
         if (Object.HasStateAuthority)
         {
@@ -588,10 +691,12 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
         RPC_RequestReload();
     }
 
+    // ============================
+    // RELOAD RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -602,13 +707,22 @@ public class PGrenade : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
+        if (!CanUseWeapon())
+            return;
+
         StartReloadAuthoritative();
     }
 
+    // ============================
+    // START RELOAD
+    // ============================
 
     private void StartReloadAuthoritative()
     {
         if (!Object.HasStateAuthority)
+            return;
+
+        if (!CanUseWeapon())
             return;
 
         if (weaponInventory == null)
@@ -623,7 +737,6 @@ public class PGrenade : NetworkBehaviour
         if (IsReloadingNetworked)
             return;
 
-
         if (weaponInventory
                 .GrenadeLoaded >=
             weaponInventory
@@ -632,7 +745,6 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
         if (weaponInventory
             .GrenadeReserve <= 0)
         {
@@ -640,13 +752,12 @@ public class PGrenade : NetworkBehaviour
             {
                 Debug.Log(
                     "GRENADE: " +
-                    "SIN GRANADAS EN RESERVA."
+                    "NO GRENADES IN RESERVE."
                 );
             }
 
             return;
         }
-
 
         IsReloadingNetworked =
             true;
@@ -671,6 +782,9 @@ public class PGrenade : NetworkBehaviour
         }
     }
 
+    // ============================
+    // COMPLETE RELOAD
+    // ============================
 
     private void CompleteReloadAuthoritative()
     {
@@ -697,13 +811,11 @@ public class PGrenade : NetworkBehaviour
             return;
         }
 
-
         int grenadesNeeded =
             weaponInventory
                 .GrenadeMagazineSize -
             weaponInventory
                 .GrenadeLoaded;
-
 
         int grenadesToLoad =
             Mathf.Min(
@@ -711,7 +823,6 @@ public class PGrenade : NetworkBehaviour
                 weaponInventory
                     .GrenadeReserve
             );
-
 
         weaponInventory
             .GrenadeLoaded +=

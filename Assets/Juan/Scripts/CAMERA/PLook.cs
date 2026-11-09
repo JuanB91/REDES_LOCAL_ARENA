@@ -1,18 +1,33 @@
 ﻿using Fusion;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class PLook : NetworkBehaviour
 {
-    
+    // ============================
+    // REFERENCES
+    // ============================
 
-    [Header("Referencias")]
+    [Header("References")]
     [SerializeField]
     private Transform cameraPivot;
 
     [SerializeField]
     private Camera playerCamera;
 
-    
+    // ============================
+    // GAME SCENES
+    // ============================
+
+    [Header("Game Scenes")]
+    [SerializeField]
+    private string deathmatchSceneName =
+        "DEATHMATCH";
+
+    // ============================
+    // MOUSE
+    // ============================
+
     [Header("Mouse")]
     [SerializeField]
     private float mouseSensitivity = 2f;
@@ -20,7 +35,10 @@ public class PLook : NetworkBehaviour
     [SerializeField]
     private float maxLookAngle = 85f;
 
-    
+    // ============================
+    // ROTATION STATE
+    // ============================
+
     private float verticalRotation;
 
     private float horizontalRotation;
@@ -30,12 +48,21 @@ public class PLook : NetworkBehaviour
     private const float RotationSendThreshold =
         0.05f;
 
-    
+    // ============================
+    // REFERENCES
+    // ============================
+
     private PHealth health;
 
     private NetworkGameManager gameManager;
 
-    
+    private DeathmatchGameManager
+        deathmatchGameManager;
+
+    // ============================
+    // SPAWNED
+    // ============================
+
     public override void Spawned()
     {
         health =
@@ -46,10 +73,18 @@ public class PLook : NetworkBehaviour
                 NetworkGameManager
             >();
 
+        deathmatchGameManager =
+            FindFirstObjectByType<
+                DeathmatchGameManager
+            >();
+
         bool isLocalPlayer =
             Object.HasInputAuthority;
 
-        
+        // ============================
+        // CAMERA
+        // ============================
+
         if (playerCamera != null)
         {
             playerCamera.enabled =
@@ -66,7 +101,10 @@ public class PLook : NetworkBehaviour
             }
         }
 
- 
+        // ============================
+        // LOCAL PLAYER
+        // ============================
+
         if (isLocalPlayer)
         {
             horizontalRotation =
@@ -88,6 +126,8 @@ public class PLook : NetworkBehaviour
                 $"LOCAL CAMERA ENABLED | " +
                 $"PLAYER: " +
                 $"{Object.InputAuthority.PlayerId} | " +
+                $"SCENE: " +
+                $"{SceneManager.GetActiveScene().name} | " +
                 $"YAW: {horizontalRotation:F1}"
             );
         }
@@ -101,6 +141,10 @@ public class PLook : NetworkBehaviour
         }
     }
 
+    // ============================
+    // UPDATE
+    // ============================
+
     private void Update()
     {
         if (Object == null)
@@ -111,6 +155,10 @@ public class PLook : NetworkBehaviour
 
         if (!Object.HasInputAuthority)
             return;
+
+        // ============================
+        // HEALTH
+        // ============================
 
         if (health == null)
         {
@@ -124,26 +172,18 @@ public class PLook : NetworkBehaviour
             return;
         }
 
-        
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
+        // ============================
+        // CAN LOOK?
+        // ============================
 
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanPlayerLook())
         {
             return;
         }
 
-        if (gameManager.IsReady &&
-            gameManager.GameOver)
-        {
-            return;
-        }
+        // ============================
+        // MOUSE INPUT
+        // ============================
 
         float mouseX =
             Input.GetAxis(
@@ -157,7 +197,10 @@ public class PLook : NetworkBehaviour
             ) *
             mouseSensitivity;
 
-        
+        // ============================
+        // HORIZONTAL ROTATION
+        // ============================
+
         horizontalRotation +=
             mouseX;
 
@@ -166,6 +209,10 @@ public class PLook : NetworkBehaviour
                 horizontalRotation,
                 360f
             );
+
+        // ============================
+        // VERTICAL ROTATION
+        // ============================
 
         verticalRotation -=
             mouseY;
@@ -177,7 +224,10 @@ public class PLook : NetworkBehaviour
                 maxLookAngle
             );
 
-        
+        // ============================
+        // CAMERA PIVOT
+        // ============================
+
         if (cameraPivot != null)
         {
             cameraPivot.localRotation =
@@ -187,11 +237,19 @@ public class PLook : NetworkBehaviour
                     0f
                 );
         }
+
+        // ============================
+        // LOCAL YAW
+        // ============================
+
         ApplyHorizontalRotation(
             horizontalRotation
         );
     }
 
+    // ============================
+    // FIXED UPDATE NETWORK
+    // ============================
 
     public override void FixedUpdateNetwork()
     {
@@ -204,6 +262,9 @@ public class PLook : NetworkBehaviour
         if (!Object.HasInputAuthority)
             return;
 
+        // ============================
+        // HEALTH
+        // ============================
 
         if (health == null)
         {
@@ -217,27 +278,18 @@ public class PLook : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // CAN LOOK?
+        // ============================
 
-        if (gameManager == null)
-        {
-            gameManager =
-                FindFirstObjectByType<
-                    NetworkGameManager
-                >();
-        }
-
-        if (gameManager == null ||
-            !gameManager.CanPlay)
+        if (!CanPlayerLook())
         {
             return;
         }
 
-        if (gameManager.IsReady &&
-            gameManager.GameOver)
-        {
-            return;
-        }
-
+        // ============================
+        // HOST PLAYER
+        // ============================
 
         if (Object.HasStateAuthority)
         {
@@ -251,6 +303,9 @@ public class PLook : NetworkBehaviour
             return;
         }
 
+        // ============================
+        // CLIENT ROTATION SYNC
+        // ============================
 
         float difference =
             Mathf.Abs(
@@ -274,6 +329,76 @@ public class PLook : NetworkBehaviour
         );
     }
 
+    // ============================
+    // CAN PLAYER LOOK
+    // ============================
+
+    private bool CanPlayerLook()
+    {
+        string sceneName =
+            SceneManager
+                .GetActiveScene()
+                .name;
+
+        // ============================
+        // DEATHMATCH
+        // ============================
+
+        if (sceneName ==
+            deathmatchSceneName)
+        {
+            if (deathmatchGameManager == null)
+            {
+                deathmatchGameManager =
+                    FindFirstObjectByType<
+                        DeathmatchGameManager
+                    >();
+            }
+
+            if (deathmatchGameManager == null)
+            {
+                return false;
+            }
+
+            return
+                deathmatchGameManager
+                    .CanPlay;
+        }
+
+        // ============================
+        // TEAM VS TEAM
+        // ============================
+
+        if (gameManager == null)
+        {
+            gameManager =
+                FindFirstObjectByType<
+                    NetworkGameManager
+                >();
+        }
+
+        if (gameManager == null)
+        {
+            return false;
+        }
+
+        if (!gameManager.CanPlay)
+        {
+            return false;
+        }
+
+        if (gameManager.IsReady &&
+            gameManager.GameOver)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // ============================
+    // ROTATION RPC
+    // ============================
 
     [Rpc(
         RpcSources.InputAuthority,
@@ -296,6 +421,9 @@ public class PLook : NetworkBehaviour
         );
     }
 
+    // ============================
+    // APPLY ROTATION
+    // ============================
 
     private void ApplyHorizontalRotation(
         float yaw)
@@ -308,6 +436,9 @@ public class PLook : NetworkBehaviour
             );
     }
 
+    // ============================
+    // SYNC ROTATION
+    // ============================
 
     public void SyncHorizontalRotation()
     {
